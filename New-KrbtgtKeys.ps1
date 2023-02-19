@@ -289,7 +289,7 @@ Function testAdminRole($adminRole) {
 }
 
 ### FUNCTION: Create Temporary Canary Object
-Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $execDateTimeCustom1, $localADforest, $remoteCredsUsed, $adminCreds) {
+Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $execDateTimeCustom1, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
 	# Determine The DN Of The Default NC Of The Targeted Domain
 	$targetedADdomainDefaultNC = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -404,9 +404,9 @@ Function generateNewComplexPassword([int]$passwordNrChars) {
 }
 
 ### FUNCTION: Reset Password Of AD Account
-Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $localADforest, $remoteCredsUsed, $adminCreds) {
+Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+	$krbTgtObjectBefore = $krbTgtObjectBeforeDN = $krbTgtObjectBeforePwdLastSet = $metadataObjectBefore = $metadataObjectBeforeAttribPwdLastSet = $orgRWDCNTDSSettingsObjectDNBefore = $null
 	# Retrieve The KrgTgt Object In The AD Domain BEFORE THE PASSWORD SET
-	$krbTgtObjectBefore = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 		$krbTgtObjectBefore = Get-ADUser -LDAPFilter "(sAMAccountName=$krbTgtSamAccountName)" -Properties * -Server $targetedADdomainRWDC
 	}
@@ -415,33 +415,27 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	}
 
 	# Get The DN Of The KrgTgt Object In The AD Domain BEFORE THE PASSWORD SET
-	$krbTgtObjectBeforeDN = $null
 	$krbTgtObjectBeforeDN = $krbTgtObjectBefore.DistinguishedName
 
 	# Get The Password Last Set Value From The KrgTgt Object In The AD Domain BEFORE THE PASSWORD SET
-	$krbTgtObjectBeforePwdLastSet = $null
 	$krbTgtObjectBeforePwdLastSet = Get-Date $([datetime]::fromfiletime($krbTgtObjectBefore.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
 
 	# Get The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object BEFORE THE PASSWORD SET
-	$metadataObjectBefore = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 		$metadataObjectBefore = Get-ADReplicationAttributeMetadata $krbTgtObjectBeforeDN -Server $targetedADdomainRWDC
 	}
 	If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 		$metadataObjectBefore = Get-ADReplicationAttributeMetadata $krbTgtObjectBeforeDN -Server $targetedADdomainRWDC -Credential $adminCreds
 	}
-	$metadataObjectBeforeAttribPwdLastSet = $null
 	$metadataObjectBeforeAttribPwdLastSet = $metadataObjectBefore | Where-Object{$_.AttributeName -eq "pwdLastSet"}
-	$orgRWDCNTDSSettingsObjectDNBefore = $null
 	$orgRWDCNTDSSettingsObjectDNBefore = $metadataObjectBeforeAttribPwdLastSet.LastOriginatingChangeDirectoryServerIdentity
 	$metadataObjectBeforeAttribPwdLastSetOrgRWDCFQDN = $null
 	If ($orgRWDCNTDSSettingsObjectDNBefore) {			
+		$orgRWDCServerObjectDNBefore = $orgRWDCServerObjectObjBefore = $null
 		# Strip "CN=NTDS Settings," To End Up With The Server Object DN
-		$orgRWDCServerObjectDNBefore = $null
 		$orgRWDCServerObjectDNBefore = $orgRWDCNTDSSettingsObjectDNBefore.SubString(("CN=NTDS Settings,").Length)
 
 		# Connect To The Server Object DN
-		$orgRWDCServerObjectObjBefore = $null
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 			$orgRWDCServerObjectObjBefore = ([ADSI]"LDAP://$targetedADdomainRWDC/$orgRWDCServerObjectDNBefore")
 		}
@@ -452,9 +446,8 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	} Else {
 		$metadataObjectBeforeAttribPwdLastSetOrgRWDCFQDN = "RWDC Demoted"
 	}
-	$metadataObjectBeforeAttribPwdLastSetOrgTime = $null
+	$metadataObjectBeforeAttribPwdLastSetOrgTime = $metadataObjectBeforeAttribPwdLastSetVersion = $null
 	$metadataObjectBeforeAttribPwdLastSetOrgTime = Get-Date $($metadataObjectBeforeAttribPwdLastSet.LastOriginatingChangeTime) -f "yyyy-MM-dd HH:mm:ss"
-	$metadataObjectBeforeAttribPwdLastSetVersion = $null
 	$metadataObjectBeforeAttribPwdLastSetVersion = $metadataObjectBeforeAttribPwdLastSet.Version
 
 	Logging "  --> RWDC To Reset Password On.............: '$targetedADdomainRWDC'"
@@ -465,12 +458,11 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	$passwordNrChars = 64
 	Logging "  --> Number Of Chars For Pwd Generation....: '$passwordNrChars'"
 
+	$newKrbTgtPassword = $newKrbTgtPasswordSecure = $null
 	# Generate A New Password With The Specified Length (Text)
-	$newKrbTgtPassword = $null
 	$newKrbTgtPassword = (generateNewComplexPassword $passwordNrChars).ToString()
 
 	# Convert The Text Based Version Of The New Password To A Secure String
-	$newKrbTgtPasswordSecure = $null
 	$newKrbTgtPasswordSecure = ConvertTo-SecureString $newKrbTgtPassword -AsPlainText -Force
 
 	# Try To Set The New Password On The Targeted KrbTgt Account And If Not Successfull Throw Error
@@ -488,7 +480,7 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	}
 
 	# Retrieve The KrgTgt Object In The AD Domain AFTER THE PASSWORD SET
-	$krbTgtObjectAfter = $null
+	$krbTgtObjectAfter = $krbTgtObjectAfterDN = $krbTgtObjectAfterPwdLastSet = $metadataObjectAfter = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 		$krbTgtObjectAfter = Get-ADUser -LDAPFilter "(sAMAccountName=$krbTgtSamAccountName)" -Properties * -Server $targetedADdomainRWDC
 	}
@@ -497,15 +489,12 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	}
 
 	# Get The DN Of The KrgTgt Object In The AD Domain AFTER THE PASSWORD SET
-	$krbTgtObjectAfterDN = $null
 	$krbTgtObjectAfterDN = $krbTgtObjectAfter.DistinguishedName
 
 	# Get The Password Last Set Value From The KrgTgt Object In The AD Domain AFTER THE PASSWORD SET
-	$krbTgtObjectAfterPwdLastSet = $null
 	$krbTgtObjectAfterPwdLastSet = Get-Date $([datetime]::fromfiletime($krbTgtObjectAfter.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
 
 	# Get The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object AFTER THE PASSWORD SET
-	$metadataObjectAfter = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 		$metadataObjectAfter = Get-ADReplicationAttributeMetadata $krbTgtObjectAfterDN -Server $targetedADdomainRWDC
 	}
@@ -534,9 +523,8 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	} Else {
 		$metadataObjectAfterAttribPwdLastSetOrgRWDCFQDN = "RWDC Demoted"
 	}
-	$metadataObjectAfterAttribPwdLastSetOrgTime = $null
+	$metadataObjectAfterAttribPwdLastSetOrgTime = $metadataObjectAfterAttribPwdLastSetVersion = $null
 	$metadataObjectAfterAttribPwdLastSetOrgTime = Get-Date $($metadataObjectAfterAttribPwdLastSet.LastOriginatingChangeTime) -f "yyyy-MM-dd HH:mm:ss"
-	$metadataObjectAfterAttribPwdLastSetVersion = $null
 	$metadataObjectAfterAttribPwdLastSetVersion = $metadataObjectAfterAttribPwdLastSet.Version
 	Logging
 	Logging "  --> Previous Password Set Date/Time.......: '$krbTgtObjectBeforePwdLastSet'"
@@ -569,7 +557,7 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 
 ### FUNCTION: Replicate Single AD Object
 # INFO: https://msdn.microsoft.com/en-us/library/cc223306.aspx
-Function replicateSingleADObject($sourceDCNTDSSettingsObjectDN, $targetDCFQDN, $objectDN, $contentScope, $localADforest, $remoteCredsUsed, $adminCreds) {
+Function replicateSingleADObject($sourceDCNTDSSettingsObjectDN, $targetDCFQDN, $objectDN, $contentScope, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
 	# Define And Target The root DSE Context
 	$rootDSE = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -594,7 +582,7 @@ Function replicateSingleADObject($sourceDCNTDSSettingsObjectDN, $targetDCFQDN, $
 }
 
 ### FUNCTION: Delete/Cleanup Temporary Canary Object
-Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $localADforest, $remoteCredsUsed, $adminCreds) {
+Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
 	# Try To Delete The Canary Object In The AD Domain And If Not Successfull Throw Error
 	Try {
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -624,7 +612,7 @@ Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $
 }
 
 ### FUNCTION: Check AD Replication Convergence
-Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainSourceRWDCFQDN, $targetObjectToCheckDN, $listOfDCsToCheckObjectOnStart, $listOfDCsToCheckObjectOnEnd, $modeOfOperationNr, $localADforest, $remoteCredsUsed, $adminCreds) {
+Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainSourceRWDCFQDN, $targetObjectToCheckDN, $listOfDCsToCheckObjectOnStart, $listOfDCsToCheckObjectOnEnd, $modeOfOperationNr, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
 	# Determine The Starting Time
 	$startDateTime = Get-Date
 
@@ -652,28 +640,24 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 
 		# For Each DC To Check On The Starting List With All DCs To Check Execute The Following...
 		ForEach ($dcToCheck in $listOfDCsToCheckObjectOnStart) {
+			$dcToCheckHostName = $dcToCheckIsPDC = $dcToCheckSiteName = $dcToCheckDSType = $dcToCheckIPAddress = $dcToCheckReachability = $dcToCheckSourceRWDCNTDSSettingsObjectDN = $null
+
 			# HostName Of The DC To Check
-			$dcToCheckHostName = $null
 			$dcToCheckHostName = $dcToCheck."Host Name"
 
 			# Is The DC To Check Also The PDC?
-			$dcToCheckIsPDC = $null
 			$dcToCheckIsPDC = $dcToCheck.PDC
 
 			# SiteName Of The DC To Check
-			$dcToCheckSiteName = $null
 			$dcToCheckSiteName = $dcToCheck."Site Name"
 
 			# Type (RWDC Or RODC) Of The DC To Check
-			$dcToCheckDSType = $null
 			$dcToCheckDSType = $dcToCheck."DS Type"
 
 			# IP Address Of The DC To Check
-			$dcToCheckIPAddress = $null
 			$dcToCheckIPAddress = $dcToCheck."IP Address"
 
 			# Reachability Of The DC To Check
-			$dcToCheckReachability = $null
 			$dcToCheckReachability = $dcToCheck.Reachable
 
 			# HostName Of The Source RWDC Of The DC To Check
@@ -681,7 +665,6 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 			#$dcToCheckSourceRWDCFQDN = $dcToCheck."Source RWDC FQDN"
 
 			# DSA DN Of The Source RWDC Of The DC To Check
-			$dcToCheckSourceRWDCNTDSSettingsObjectDN = $null
 			$dcToCheckSourceRWDCNTDSSettingsObjectDN = $dcToCheck."Source RWDC DSA"
 
 			# When Running Mode 3 (Using TEST/BOGUS KrbTgt Accounts) Or Mode 4 (Using PROD/REAL KrbTgt Accounts)
@@ -948,9 +931,10 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 }
 
 ### FUNCTION: Create Test Krbtgt Accounts
-Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $krbTgtUse, $targetedADdomainDomainSID, $localADforest, $remoteCredsUsed, $adminCreds) {
+Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $krbTgtUse, $targetedADdomainDomainSID, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+	$targetedADdomainDefaultNC = $containerForTestKrbTgtAccount = $testKrbTgtObjectSamAccountName = $testKrbTgtObjectName = $testKrbTgtObjectDescription = $testKrbTgtObjectDN = $null
+
 	# Determine The DN Of The Default NC Of The Targeted Domain
-	$targetedADdomainDefaultNC = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 		$targetedADdomainDefaultNC = (Get-ADRootDSE -Server $targetedADdomainRWDC).defaultNamingContext
 	}
@@ -959,19 +943,15 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 	}
 
 	# Determine The DN Of The Users Container Of The Targeted Domain
-	$containerForTestKrbTgtAccount = $null
 	$containerForTestKrbTgtAccount = "CN=Users," + $targetedADdomainDefaultNC
 
 	# Set The SamAccountName For The Test/Bogus KrbTgt Account
-	$testKrbTgtObjectSamAccountName = $null
 	$testKrbTgtObjectSamAccountName = $krbTgtSamAccountName
 
 	# Set The Name For The Test/Bogus KrbTgt Account
-	$testKrbTgtObjectName = $null
 	$testKrbTgtObjectName = $testKrbTgtObjectSamAccountName
 
 	# Set The Description For The Test/Bogus KrbTgt Account
-	$testKrbTgtObjectDescription = $null
 
 	# Set The Description For The Test/Bogus KrbTgt Account For RWDCs
 	If ($krbTgtUse -eq "RWDC") {
@@ -984,7 +964,6 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 	}	
 
 	# Generate The DN Of The Test KrbTgt Object
-	$testKrbTgtObjectDN = $null
 	$testKrbTgtObjectDN = "CN=" + $testKrbTgtObjectName + "," + $containerForTestKrbTgtAccount
 	Logging "  --> RWDC To Create Object On..............: '$targetedADdomainRWDC'"
 	Logging "  --> Full Name Test KrbTgt Account.........: '$testKrbTgtObjectName'"
@@ -1034,13 +1013,12 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 		# If The Test/Bogus KrbTgt Account Does Not Exist Yet In AD
 		# Specify The Number Of Characters The Generate Password Should Contain
 		$passwordNrChars = 64
+		$krbTgtPassword = $krbTgtPasswordSecure = $testKrbTgtObject = $testKrbTgtObjectDN = $null
 
 		# Generate A New Password With The Specified Length (Text)
-		$krbTgtPassword = $null
 		$krbTgtPassword = (generateNewComplexPassword $passwordNrChars).ToString()
 
 		# Convert The Text Based Version Of The New Password To A Secure String
-		$krbTgtPasswordSecure = $null
 		$krbTgtPasswordSecure = ConvertTo-SecureString $krbTgtPassword -AsPlainText -Force
 
 		# Try To Create The Test/Bogus KrbTgt Account In The AD Domain And If Not Successfull Throw Error
@@ -1057,7 +1035,6 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 		}
 
 		# Check The The Test/Bogus KrbTgt Account Exists And Was created In AD
-		$testKrbTgtObject = $null
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 			$testKrbTgtObject = Get-ADObject -LDAPFilter "(&(objectClass=user)(name=$testKrbTgtObjectName))" -Server $targetedADdomainRWDC
 		}
@@ -1065,7 +1042,6 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 			$testKrbTgtObject = Get-ADObject -LDAPFilter "(&(objectClass=user)(name=$testKrbTgtObjectName))" -Server $targetedADdomainRWDC -Credential $adminCreds
 		}
 		If ($testKrbTgtObject) {
-			$testKrbTgtObjectDN = $null
 			$testKrbTgtObjectDN = $testKrbTgtObject.DistinguishedName
 			Logging "  --> Test KrbTgt Account [$testKrbTgtObjectDN] CREATED on RWDC [$targetedADdomainRWDC]!..." "REMARK"
 			Logging "" "REMARK"
@@ -1175,7 +1151,7 @@ Function deleteTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName)
 }
 
 ### Version Of Script
-$version = "v2.5.1, 2022-02-19"
+$version = "v2.6, 2022-02-19"
 
 ### Clear The Screen
 Clear-Host
@@ -2443,37 +2419,32 @@ If ($listOfRODCsInADDomain) {
 		$tableOfDCsInADDomainObj."Ver" = $null
 		If ($rodcKrbTgtObject) {
 			# If The Object Of The KrbTgt Account Exists
+			$rodcKrbTgtObjectDN = $rodcKrbTgtPwdLastSet = $metadataObject = $null
 			# Retrieve The DN OF The Object
-			$rodcKrbTgtObjectDN = $null
 			$rodcKrbTgtObjectDN = $rodcKrbTgtObject.DistinguishedName		
 
 			# Retrieve The Password Last Set Value Of The KrbTgt Account
-			$rodcKrbTgtPwdLastSet = $null
 			$rodcKrbTgtPwdLastSet = Get-Date $([datetime]::fromfiletime($rodcKrbTgtObject.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
 
 			# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 			$tableOfDCsInADDomainObj."Pwd Last Set" = $rodcKrbTgtPwdLastSet
 
 			# Retrieve The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object
-			$metadataObject = $null
 			If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
 				$metadataObject = Get-ADReplicationAttributeMetadata $rodcKrbTgtObjectDN -Server $targetedADdomainRWDCWithPDCFSMOFQDN
 			}
 			If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 				$metadataObject = Get-ADReplicationAttributeMetadata $rodcKrbTgtObjectDN -Server $targetedADdomainRWDCWithPDCFSMOFQDN -Credential $adminCreds
 			}
-			$metadataObjectAttribPwdLastSet = $null
+			$metadataObjectAttribPwdLastSet = $orgRWDCNTDSSettingsObjectDN = $metadataObjectAttribPwdLastSetOrgRWDCFQDN = $null
 			$metadataObjectAttribPwdLastSet = $metadataObject | Where-Object{$_.AttributeName -eq "pwdLastSet"}
-			$orgRWDCNTDSSettingsObjectDN = $null
 			$orgRWDCNTDSSettingsObjectDN = $metadataObjectAttribPwdLastSet.LastOriginatingChangeDirectoryServerIdentity
-			$metadataObjectAttribPwdLastSetOrgRWDCFQDN = $null
 			If ($orgRWDCNTDSSettingsObjectDN) {			
+				$orgRWDCServerObjectDN = $orgRWDCServerObjectObj = $null
 				# Strip "CN=NTDS Settings," To End Up With The Server Object DN
-				$orgRWDCServerObjectDN = $null
 				$orgRWDCServerObjectDN = $orgRWDCNTDSSettingsObjectDN.SubString(("CN=NTDS Settings,").Length)
 
 				# Connect To The Server Object DN
-				$orgRWDCServerObjectObj = $null
 				If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
 					$orgRWDCServerObjectObj = ([ADSI]"LDAP://$targetedADdomainRWDCWithPDCFSMOFQDN/$orgRWDCServerObjectDN")
 				}
@@ -2484,9 +2455,8 @@ If ($listOfRODCsInADDomain) {
 			} Else {
 				$metadataObjectAttribPwdLastSetOrgRWDCFQDN = "RWDC Demoted"
 			}
-			$metadataObjectAttribPwdLastSetOrgTime = $null
+			$metadataObjectAttribPwdLastSetOrgTime = $metadataObjectAttribPwdLastSetVersion = $null
 			$metadataObjectAttribPwdLastSetOrgTime = Get-Date $($metadataObjectAttribPwdLastSet.LastOriginatingChangeTime) -f "yyyy-MM-dd HH:mm:ss"
-			$metadataObjectAttribPwdLastSetVersion = $null
 			$metadataObjectAttribPwdLastSetVersion = $metadataObjectAttribPwdLastSet.Version
 
 			# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
@@ -2564,12 +2534,11 @@ If ($listOfRODCsInADDomain) {
 			# If The RODC Has An Operating System Specified, Then It Is Most Likely A Windows RODC
 			If ($tableOfDCsInADDomainObj.Reachable -eq $True) {
 				# If The RODC Is Available/Reachable
+				$rodcNTDSSettingsObjectDN = $dsDirSearcher = $null
 				# Get The DSA DN Of The RODC
-				$rodcNTDSSettingsObjectDN = $null
 				$rodcNTDSSettingsObjectDN = $rodcObj.NTDSSettingsObjectDN
 
 				# Define An LDAP Query With A Search Base And A Filter To Determine The DSA DN Of The Source RWDC Of The RODC
-				$dsDirSearcher = $null
 				$dsDirSearcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"")
 				$dsDirSearcher.SearchRoot = $null
 				If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2578,9 +2547,8 @@ If ($listOfRODCsInADDomain) {
 				If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 					$dsDirSearcher.SearchRoot = New-Object System.DirectoryServices.DirectoryEntry(("LDAP://$rodcFQDN/$rodcNTDSSettingsObjectDN"),$adminUserAccountRemoteForest, $adminUserPasswordRemoteForest)
 				}
-				$dsDirSearcher.Filter = $null
+				$dsDirSearcher.Filter = $sourceRWDCsNTDSSettingsObjectDN = $null
 				$dsDirSearcher.Filter = "(&(objectClass=nTDSConnection)(ms-DS-ReplicatesNCReason=*))"
-				$sourceRWDCsNTDSSettingsObjectDN = $null
 				$sourceRWDCsNTDSSettingsObjectDN = $dsDirSearcher.FindAll().Properties.fromserver
 
 				# For Every DSA DN Of The Source RWDC Retrieved
