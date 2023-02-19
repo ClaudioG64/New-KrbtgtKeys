@@ -19,8 +19,8 @@ $ver
 	This PoSH Script Resets The KrbTgt Password For RWDCs And RODCs In A Controlled Manner
 
 .VERSION
-	v2.5, 2020-02-17 (UPDATE THE VERSION VARIABLE BELOW)
-	
+	v2.6, 2023-02-19 (UPDATE THE VERSION VARIABLE BELOW)
+
 .AUTHOR
 	Initial Script/Thoughts.......: Jared Poeppelman, Microsoft
 	Script Re-Written/Enhanced....: Jorge de Almeida Pinto [MVP Enterprise Mobility And Security, EMS]
@@ -46,7 +46,7 @@ $ver
 		and replication of it is monitored through the environment for its duration
 	- The creation of Test KrbTgt Accounts, which is mode 8
 	- The deletion of Test KrbTgt Accounts, which is mode 9
-	
+
 	Behavior:
 	- In mode 1 you will always get a list of all RWDCs, and alls RODCs if applicable, in the targeted AD domain that are available/reachable
 		or not
@@ -117,9 +117,11 @@ $ver
 		for DES, RC4, AES128, AES256!
 
 .RELEASE NOTES
+	v2.6, 2023-02-19, Claudio Galletti
+	  -  Code cleanup, minor review
 	v2.5, 2020-02-17, Jorge de Almeida Pinto [MVP-EMS]:
 		- To improve performance, for some actions the nearest RWDC is discovered instead of using the RWDC with the PDC FSMO Role
-		
+
 	v2.4, 2020-02-10, Jorge de Almeida Pinto [MVP-EMS]:
 		- Checked script with Visual Studio Code and fixed all "problems" identified by Visual Studio Code
 			- Variable "$remoteCredsUsed" is ignored by me, as the problem is due to the part 'Creds' in the variable name 
@@ -135,11 +137,11 @@ $ver
 		- Bug Fix: Instead of searching for "Domain Admins" or "Enterprise Admins" membership, it resolves the default RIDs of those groups,
 			combined with the corresponding domain SID, to the actual name of those domain groups. This helps in supporting non-english names
 			of those domain groups
-		
+
 	v2.1, 2019-02-11, Jorge de Almeida Pinto [MVP-EMS]:
 		- New Feature: Read and display metadata of the KrbTgt accounts before and after to assure it was only updated once!
 		- Bug Fix: Added a try catch when enumerating details about a specific AD domain that appears not to be available
-			
+
 	v2.0, 2018-12-30, Jorge de Almeida Pinto [MVP-EMS]:
 		- Renamed script to Reset-KrbTgt-Password-For-RWDCs-And-RODCs.ps1
 		- Full rewrite and major release
@@ -296,18 +298,18 @@ Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $e
 	If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 		$targetedADdomainDefaultNC = (Get-ADRootDSE -Server $targetedADdomainRWDC -Credential $adminCreds).defaultNamingContext
 	}
-	
+
 	# Determine The DN Of The Users Container Of The Targeted Domain
 	$containerForTempCanaryObject = $null
 	$containerForTempCanaryObject = "CN=Users," + $targetedADdomainDefaultNC
-	
+
 	# Generate The Name Of The Temporary Canary Object
 	$targetObjectToCheckName = $null
 	$targetObjectToCheckName = "_adReplTempObject_" + $krbTgtSamAccountName + "_" + $execDateTimeCustom1
-	
+
 	# Specify The Description Of The Temporary Canary Object
 	$targetObjectToCheckDescription = "...!!!.TEMP OBJECT TO CHECK AD REPLICATION IMPACT.!!!..."
-	
+
 	# Generate The DN Of The Temporary Canary Object
 	$targetObjectToCheckDN = $null
 	$targetObjectToCheckDN = "CN=" + $targetObjectToCheckName + "," + $containerForTempCanaryObject
@@ -316,7 +318,7 @@ Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $e
 	Logging "  --> Description...........................: '$targetObjectToCheckDescription'"
 	Logging "  --> Container For Temp Canary Object......: '$containerForTempCanaryObject'"
 	Logging
-	
+
 	# Try To Create The Canary Object In The AD Domain And If Not Successfull Throw Error
 	Try {
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -329,7 +331,7 @@ Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $e
 		Logging "  --> Temp Canary Object [$targetObjectToCheckDN] FAILED TO BE CREATED on RWDC [$targetedADdomainRWDC]!..." "ERROR"
 		Logging "" "ERROR"
 	}
-	
+
 	# Check The Temporary Canary Object Exists And Was created In AD
 	$targetObjectToCheck = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -352,19 +354,19 @@ Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $e
 Function confirmPasswordIsComplex($pwd) {
 	Process {
 		$criteriaMet = 0
-		
+
 		# Upper Case Characters (A through Z, with diacritic marks, Greek and Cyrillic characters)
 		If ($pwd -cmatch '[A-Z]') {$criteriaMet++}
-		
+
 		# Lower Case Characters (a through z, sharp-s, with diacritic marks, Greek and Cyrillic characters)
 		If ($pwd -cmatch '[a-z]') {$criteriaMet++}
-		
+
 		# Numeric Characters (0 through 9)
 		If ($pwd -match '\d') {$criteriaMet++}
-		
+
 		# Special Chracters (Non-alphanumeric characters, currency symbols such as the Euro or British Pound are not counted as special characters for this policy setting)
 		If ($pwd -match '[\^~!@#$%^&*_+=`|\\(){}\[\]:;"''<>,.?/]') {$criteriaMet++}
-		
+
 		# Check If It Matches Default Windows Complexity Requirements
 		If ($criteriaMet -lt 3) {Return $false}
 		If ($pwd.Length -lt 8) {Return $false}
@@ -411,15 +413,15 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 		$krbTgtObjectBefore = Get-ADUser -LDAPFilter "(sAMAccountName=$krbTgtSamAccountName)" -Properties * -Server $targetedADdomainRWDC -Credential $adminCreds
 	}
-	
+
 	# Get The DN Of The KrgTgt Object In The AD Domain BEFORE THE PASSWORD SET
 	$krbTgtObjectBeforeDN = $null
 	$krbTgtObjectBeforeDN = $krbTgtObjectBefore.DistinguishedName
-	
+
 	# Get The Password Last Set Value From The KrgTgt Object In The AD Domain BEFORE THE PASSWORD SET
 	$krbTgtObjectBeforePwdLastSet = $null
 	$krbTgtObjectBeforePwdLastSet = Get-Date $([datetime]::fromfiletime($krbTgtObjectBefore.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
-	
+
 	# Get The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object BEFORE THE PASSWORD SET
 	$metadataObjectBefore = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -437,7 +439,7 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 		# Strip "CN=NTDS Settings," To End Up With The Server Object DN
 		$orgRWDCServerObjectDNBefore = $null
 		$orgRWDCServerObjectDNBefore = $orgRWDCNTDSSettingsObjectDNBefore.SubString(("CN=NTDS Settings,").Length)
-		
+
 		# Connect To The Server Object DN
 		$orgRWDCServerObjectObjBefore = $null
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -454,23 +456,23 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	$metadataObjectBeforeAttribPwdLastSetOrgTime = Get-Date $($metadataObjectBeforeAttribPwdLastSet.LastOriginatingChangeTime) -f "yyyy-MM-dd HH:mm:ss"
 	$metadataObjectBeforeAttribPwdLastSetVersion = $null
 	$metadataObjectBeforeAttribPwdLastSetVersion = $metadataObjectBeforeAttribPwdLastSet.Version
-	
+
 	Logging "  --> RWDC To Reset Password On.............: '$targetedADdomainRWDC'"
 	Logging "  --> sAMAccountName Of KrbTgt Account......: '$krbTgtSamAccountName'"
 	Logging "  --> Distinguished Name Of KrbTgt Account..: '$krbTgtObjectBeforeDN'"
-	
+
 	# Specify The Number Of Characters The Generate Password Should Contain
 	$passwordNrChars = 64
 	Logging "  --> Number Of Chars For Pwd Generation....: '$passwordNrChars'"
-	
+
 	# Generate A New Password With The Specified Length (Text)
 	$newKrbTgtPassword = $null
 	$newKrbTgtPassword = (generateNewComplexPassword $passwordNrChars).ToString()
-	
+
 	# Convert The Text Based Version Of The New Password To A Secure String
 	$newKrbTgtPasswordSecure = $null
 	$newKrbTgtPasswordSecure = ConvertTo-SecureString $newKrbTgtPassword -AsPlainText -Force
-	
+
 	# Try To Set The New Password On The Targeted KrbTgt Account And If Not Successfull Throw Error
 	Try {
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -493,15 +495,15 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 		$krbTgtObjectAfter = Get-ADUser -LDAPFilter "(sAMAccountName=$krbTgtSamAccountName)" -Properties * -Server $targetedADdomainRWDC -Credential $adminCreds
 	}
-	
+
 	# Get The DN Of The KrgTgt Object In The AD Domain AFTER THE PASSWORD SET
 	$krbTgtObjectAfterDN = $null
 	$krbTgtObjectAfterDN = $krbTgtObjectAfter.DistinguishedName
-	
+
 	# Get The Password Last Set Value From The KrgTgt Object In The AD Domain AFTER THE PASSWORD SET
 	$krbTgtObjectAfterPwdLastSet = $null
 	$krbTgtObjectAfterPwdLastSet = Get-Date $([datetime]::fromfiletime($krbTgtObjectAfter.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
-	
+
 	# Get The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object AFTER THE PASSWORD SET
 	$metadataObjectAfter = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -519,7 +521,7 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 		# Strip "CN=NTDS Settings," To End Up With The Server Object DN
 		$orgRWDCServerObjectDNAfter = $null
 		$orgRWDCServerObjectDNAfter = $orgRWDCNTDSSettingsObjectDNAfter.SubString(("CN=NTDS Settings,").Length)
-		
+
 		# Connect To The Server Object DN
 		$orgRWDCServerObjectObjAfter = $null
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -576,17 +578,17 @@ Function replicateSingleADObject($sourceDCNTDSSettingsObjectDN, $targetDCFQDN, $
 	If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 		$rootDSE = New-Object System.DirectoryServices.DirectoryEntry(("LDAP://$targetDCFQDN/rootDSE"),$($adminCreds.UserName), $($adminCreds.GetNetworkCredential().password))
 	}
-	
+
 	# Perform A Replicate Single Object For The Complete Object
 	If ($contentScope -eq "Full") {
 		$rootDSE.Put("replicateSingleObject",$sourceDCNTDSSettingsObjectDN+":"+$objectDN)
 	}
-	
+
 	# Perform A Replicate Single Object For Obnly The Secrets Of The Object
 	If ($contentScope -eq "Secrets") {
 		$rootDSE.Put("replicateSingleObject",$sourceDCNTDSSettingsObjectDN+":"+$objectDN+":SECRETS_ONLY")
 	}	
-	
+
 	# Commit The Change To The Operational Attribute
 	$rootDSE.SetInfo()
 }
@@ -606,7 +608,7 @@ Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $
 		Logging "  --> Manually delete the Temp Canary Object [$targetObjectToCheckDN] on RWDC [$targetedADdomainRWDC]!..." "ERROR"
 		Logging "" "ERROR"
 	}
-	
+
 	# Retrieve The Temporary Canary Object From The AD Domain And If It Does Not Exist It Was Deleted Successfully
 	$targetObjectToCheck = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -625,59 +627,59 @@ Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $
 Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainSourceRWDCFQDN, $targetObjectToCheckDN, $listOfDCsToCheckObjectOnStart, $listOfDCsToCheckObjectOnEnd, $modeOfOperationNr, $localADforest, $remoteCredsUsed, $adminCreds) {
 	# Determine The Starting Time
 	$startDateTime = Get-Date
-	
+
 	# Counter
 	$c = 0
-	
+
 	# Boolean To Use In The While Condition
 	$continue = $true
-	
+
 	# The Delay In Seconds Before The Next Check Iteration
 	$delay = 0.1
-	
+
 	While($continue) {
 		$c++
 		$oldpos = $host.UI.RawUI.CursorPosition
 		Logging
 		Logging "  =================================================================== CHECK $c ==================================================================="
 		Logging
-		
+
 		# Wait For The Duration Of The Configured Delay Before Trying Again
 		Start-Sleep $delay
-		
+
 		# Variable Specifying The Object Is In Sync
 		$replicated = $true
-		
+
 		# For Each DC To Check On The Starting List With All DCs To Check Execute The Following...
 		ForEach ($dcToCheck in $listOfDCsToCheckObjectOnStart) {
 			# HostName Of The DC To Check
 			$dcToCheckHostName = $null
 			$dcToCheckHostName = $dcToCheck."Host Name"
-			
+
 			# Is The DC To Check Also The PDC?
 			$dcToCheckIsPDC = $null
 			$dcToCheckIsPDC = $dcToCheck.PDC
-			
+
 			# SiteName Of The DC To Check
 			$dcToCheckSiteName = $null
 			$dcToCheckSiteName = $dcToCheck."Site Name"
-			
+
 			# Type (RWDC Or RODC) Of The DC To Check
 			$dcToCheckDSType = $null
 			$dcToCheckDSType = $dcToCheck."DS Type"
-			
+
 			# IP Address Of The DC To Check
 			$dcToCheckIPAddress = $null
 			$dcToCheckIPAddress = $dcToCheck."IP Address"
-			
+
 			# Reachability Of The DC To Check
 			$dcToCheckReachability = $null
 			$dcToCheckReachability = $dcToCheck.Reachable
-			
+
 			# HostName Of The Source RWDC Of The DC To Check
 			#$dcToCheckSourceRWDCFQDN = $null
 			#$dcToCheckSourceRWDCFQDN = $dcToCheck."Source RWDC FQDN"
-			
+
 			# DSA DN Of The Source RWDC Of The DC To Check
 			$dcToCheckSourceRWDCNTDSSettingsObjectDN = $null
 			$dcToCheckSourceRWDCNTDSSettingsObjectDN = $dcToCheck."Source RWDC DSA"
@@ -692,7 +694,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 				If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 					$objectOnSourceOrgRWDC = Get-ADObject -Identity $targetObjectToCheckDN -Properties * -Server $targetedADdomainSourceRWDCFQDN -Credential $adminCreds
 				}
-				
+
 				# Retrieve The Password Last Set Of The Object On The Source Originating RWDC
 				$objectOnSourceOrgRWDCPwdLastSet = $null
 				$objectOnSourceOrgRWDCPwdLastSet = Get-Date $([datetime]::fromfiletime($objectOnSourceOrgRWDC.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
@@ -702,12 +704,12 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 			If ($dcToCheckHostName -eq $targetedADdomainSourceRWDCFQDN) {
 				Logging "  - Contacting DC in AD domain ...[$($dcToCheckHostName.ToUpper())]...(SOURCE RWDC)"
 				Logging "     * DC is Reachable..." "SUCCESS"
-				
+
 				# For Mode 2 Only
 				If ($modeOfOperationNr -eq 2) {
 					Logging "     * Object [$targetObjectToCheckDN] exists in the AD database" "SUCCESS"
 				}
-				
+
 				# For Mode 3 Or 4 Only
 				If ($modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
 					Logging "     * The new password for Object [$targetObjectToCheckDN] exists in the AD database" "SUCCESS"
@@ -715,12 +717,12 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 				Logging
 				CONTINUE
 			}
-			
+
 			Logging "  - Contacting DC in AD domain ...[$($dcToCheckHostName.ToUpper())]..."
 			If ($dcToCheckReachability) {
 				# When The DC To Check Is Reachable
 				Logging "     * DC is Reachable..." "SUCCESS"
-				
+
 				# When The DC To Check Is Not The Source (Originating) RWDC
 				If ($dcToCheckHostName -ne $targetedADdomainSourceRWDCFQDN) {
 					# As The DSA DN Used The DSA DN Of The Source (Originating) RWDC Of The DC Being Checked
@@ -747,7 +749,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 					# Execute The Replicate Single Object Function For The Targeted Object To Check
 					replicateSingleADObject $sourceDCNTDSSettingsObjectDN $dcToCheckHostName $targetObjectToCheckDN $contentScope $localADforest $remoteCredsUsed $adminCreds
 				}
-				
+
 				# For Mode 2 From The DC to Check Retrieve The AD Object Of The Temporary Canary Object That Was Created On The Source (Originating) RWDC
 				If ($modeOfOperationNr -eq 2) {
 					$targetObjectToCheck = $null
@@ -758,7 +760,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 						$targetObjectToCheck = Get-ADObject -LDAPFilter "(distinguishedName=$targetObjectToCheckDN)" -Server $dcToCheckHostName -Credential $adminCreds
 					}
 				}
-				
+
 				# For Mode 3 Or 4 From The DC to Check Retrieve The AD Object Of The Targeted KrbTgt Account (And Its Password Last Set) That Had Its Password Reset On The Source (Originating) RWDC
 				If ($modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
 					# Retrieve The Object From The Target DC
@@ -778,7 +780,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 				# When The DC To Check Is Not Reachable
 				Logging "     * DC is NOT reachable..." "ERROR"
 			}
-			
+
 			If ($dcToCheckReachability) {
 				# When The DC To Check Is Reachable
 
@@ -854,7 +856,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 				# When The DC To Check Is Not Reachable
 				Logging "     * Unable to connect to DC and check for Object [$targetObjectToCheckDN]..." "ERROR"
 				Logging "" "WARNING"
-				
+
 				# If The DC To Check Does Not Yet Exist On The Ending List With All DCs That Were Checked, Then Add It To The Ending List
 				If (!($listOfDCsToCheckObjectOnEnd | Where-Object{$_."Host Name" -eq $dcToCheckHostName})) {
 					# Define The Columns For This DC To Be Filled In
@@ -909,7 +911,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 
 	# Determine The Ending Time
 	$endDateTime = Get-Date
-	
+
 	# Calculate The Duration
 	$duration = "{0:n2}" -f ($endDateTime.Subtract($startDateTime).TotalSeconds)
 	Logging
@@ -928,7 +930,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 		If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 			$targetObjectToCheck = Get-ADObject -LDAPFilter "(distinguishedName=$targetObjectToCheckDN)" -Server $targetedADdomainSourceRWDCFQDN -Credential $adminCreds
 		}
-		
+
 		# If The Temp Canary Object Exists On The Source (Originating) RWDC, Then Delete It
 		If ($targetObjectToCheck) {
 			# Execute The Deletion Of The Temp Canary Object On The Source (Originating) RWDC
@@ -955,32 +957,32 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 	If ($localADforest -eq $false -And $remoteCredsUsed -eq $true) {
 		$targetedADdomainDefaultNC = (Get-ADRootDSE -Server $targetedADdomainRWDC -Credential $adminCreds).defaultNamingContext
 	}
-	
+
 	# Determine The DN Of The Users Container Of The Targeted Domain
 	$containerForTestKrbTgtAccount = $null
 	$containerForTestKrbTgtAccount = "CN=Users," + $targetedADdomainDefaultNC
-	
+
 	# Set The SamAccountName For The Test/Bogus KrbTgt Account
 	$testKrbTgtObjectSamAccountName = $null
 	$testKrbTgtObjectSamAccountName = $krbTgtSamAccountName
-	
+
 	# Set The Name For The Test/Bogus KrbTgt Account
 	$testKrbTgtObjectName = $null
 	$testKrbTgtObjectName = $testKrbTgtObjectSamAccountName
-	
+
 	# Set The Description For The Test/Bogus KrbTgt Account
 	$testKrbTgtObjectDescription = $null
-	
+
 	# Set The Description For The Test/Bogus KrbTgt Account For RWDCs
 	If ($krbTgtUse -eq "RWDC") {
 		$testKrbTgtObjectDescription = "Test Copy Representing '$($krbTgtSamAccountName.SubString(0,$krbTgtSamAccountName.IndexOf('_TEST')))' - Key Distribution Center Service Account"
 	}
-	
+
 	# Set The Description For The Test/Bogus KrbTgt Account For RODCs
 	If ($krbTgtUse -eq "RODC") {
 		$testKrbTgtObjectDescription = "Test Copy Representing '$($krbTgtSamAccountName.SubString(0,$krbTgtSamAccountName.IndexOf('_TEST')))' - Key Distribution Center service account for read-only domain controller"
 	}	
-	
+
 	# Generate The DN Of The Test KrbTgt Object
 	$testKrbTgtObjectDN = $null
 	$testKrbTgtObjectDN = "CN=" + $testKrbTgtObjectName + "," + $containerForTestKrbTgtAccount
@@ -988,7 +990,7 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 	Logging "  --> Full Name Test KrbTgt Account.........: '$testKrbTgtObjectName'"
 	Logging "  --> Description...........................: '$testKrbTgtObjectDescription'"
 	Logging "  --> Container Test KrbTgt Account.........: '$containerForTestKrbTgtAccount'"
-	
+
 	# If The Test/Bogus KrbTgt Account Is Used By RWDCs
 	If ($krbTgtUse -eq "RWDC") {
 		$deniedRODCPwdReplGroupRID = "572"
@@ -1001,7 +1003,7 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 		}
 		Logging "  --> Made Member Of RODC PRP Group.........: '$deniedRODCPwdReplGroupObjectName'"
 	}
-	
+
 	# If The Test/Bogus KrbTgt Account Is Used By RODCs
 	If ($krbTgtUse -eq "RODC") {
 		$allowedRODCPwdReplGroupRID = "571"
@@ -1015,7 +1017,7 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 		Logging "  --> Made Member Of RODC PRP Group.........: '$allowedRODCPwdReplGroupObjectName'"
 	}
 	Logging
-	
+
 	# Check If The Test/Bogus KrbTgt Account Already Exists In AD
 	$testKrbTgtObject = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -1032,15 +1034,15 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 		# If The Test/Bogus KrbTgt Account Does Not Exist Yet In AD
 		# Specify The Number Of Characters The Generate Password Should Contain
 		$passwordNrChars = 64
-		
+
 		# Generate A New Password With The Specified Length (Text)
 		$krbTgtPassword = $null
 		$krbTgtPassword = (generateNewComplexPassword $passwordNrChars).ToString()
-		
+
 		# Convert The Text Based Version Of The New Password To A Secure String
 		$krbTgtPasswordSecure = $null
 		$krbTgtPasswordSecure = ConvertTo-SecureString $krbTgtPassword -AsPlainText -Force
-		
+
 		# Try To Create The Test/Bogus KrbTgt Account In The AD Domain And If Not Successfull Throw Error
 		Try {
 			If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -1053,7 +1055,7 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 			Logging "  --> Test KrbTgt Account [$testKrbTgtObjectDN] FAILED TO BE CREATED on RWDC [$targetedADdomainRWDC]!..." "ERROR"
 			Logging "" "ERROR"
 		}
-		
+
 		# Check The The Test/Bogus KrbTgt Account Exists And Was created In AD
 		$testKrbTgtObject = $null
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -1556,10 +1558,10 @@ $modeOfOperationNr = Read-Host
 Logging
 
 # If Anything Else Than The Allowed/Available Non-Zero Modes, Abort The Script
-If (($modeOfOperationNr -ne 1 -And $modeOfOperationNr -ne 2 -And $modeOfOperationNr -ne 3 -And $modeOfOperationNr -ne 4 -And $modeOfOperationNr -ne 8 -And $modeOfOperationNr -ne 9) -Or $modeOfOperationNr -notmatch "^[\d\.]+$") {
+If (($modeOfOperationNr -notin 1,2,3,4,8,9) -Or $modeOfOperationNr -notmatch "^[\d\.]+$") {
 	Logging "  --> Chosen mode: Mode 0 - Exit Script..." "REMARK"
 	Logging
-	
+
 	EXIT
 }
 
@@ -1605,9 +1607,8 @@ Logging "SPECIFY THE TARGET AD FOREST..." "HEADER"
 Logging
 
 # Retrieve The AD Domain And AD Forest Of The Computer Where The Script Is Executed
-$currentADDomainOfLocalComputer = $null
+$currentADDomainOfLocalComputer = $currentADForestOfLocalComputer = $null
 $currentADDomainOfLocalComputer = $(Get-WmiObject -Class Win32_ComputerSystem).Domain
-$currentADForestOfLocalComputer = $null
 $currentADForestOfLocalComputer = (Get-ADDomain $currentADDomainOfLocalComputer).Forest
 
 # Ask Which AD Forest To Target
@@ -1616,7 +1617,7 @@ $targetedADforestFQDN = $null
 $targetedADforestFQDN = Read-Host
 
 # If No FQDN Of An AD Domain Is Specified, Then Use The AD Domain Of The Local Computer
-If ($targetedADforestFQDN -eq "" -Or $null -eq $targetedADforestFQDN) {
+If ([system.string]::IsNullOrEmpty($targetedADforestFQDN)) {
 	$targetedADforestFQDN = $currentADForestOfLocalComputer
 }
 Logging
@@ -1670,7 +1671,7 @@ Try {
 	# Retrieve The Nearest RWDC In The Forest Root AD Domain
 	$nearestRWDCInForestRootADDomain = $null
 	$nearestRWDCInForestRootADDomain = (Get-ADDomainController -DomainName $targetedADforestFQDN -Discover).HostName[0]
-	
+
 	# Retrieve Information About The AD Forest
 	$thisADForest = $null
 	$thisADForest = Get-ADForest -Identity $targetedADforestFQDN -Server $nearestRWDCInForestRootADDomain
@@ -1699,25 +1700,25 @@ If ($adForestAccessibility -eq $true) {
 	Logging "Continuing Script And Asking For Credentials..." "WARNING"
 	Logging "" "WARNING"
 	Logging
-	
+
 	# Ask For The Remote Credentials
 	Logging "Please provide an account (<DOMAIN FQDN>\<ACCOUNT>) that is a member of the 'Administrators' group in every AD domain of the specified AD forest: " "ACTION-NO-NEW-LINE"
 	$adminUserAccountRemoteForest = $null
 	$adminUserAccountRemoteForest = Read-Host
-	
+
 	# Ask For The Admin User Account
-	If ($adminUserAccountRemoteForest -eq "" -Or $null -eq $adminUserAccountRemoteForest) {
+	If ([system.string]::IsNullOrEmpty($adminUserAccountRemoteForest) {
 		Logging
 		Logging "Please provide an account (<DOMAIN FQDN>\<ACCOUNT>) that is a member of the 'Administrators' group in every AD domain of the specified AD forest: " "ACTION-NO-NEW-LINE"
 		$adminUserAccountRemoteForest = $null
 		$adminUserAccountRemoteForest = Read-Host
 	}
-	
+
 	# Ask For The Corresponding Password
 	Logging "Please provide the corresponding password of that admin account: " "ACTION-NO-NEW-LINE"
 	$adminUserPasswordRemoteForest = $null
 	$adminUserPasswordRemoteForest = Read-Host -AsSecureString
-	If ($adminUserPasswordRemoteForest -eq "" -Or $null -eq $adminUserPasswordRemoteForest) {
+	If ([system.string]::IsNullOrEmpty($adminUserPasswordRemoteForest)) {
 		Logging
 		Logging "Please provide the corresponding password of that admin account: " "ACTION-NO-NEW-LINE"
 		$adminUserPasswordRemoteForest = $null
@@ -1727,7 +1728,7 @@ If ($adForestAccessibility -eq $true) {
 	$secureAdminUserPasswordRemoteForest = ConvertTo-SecureString $adminUserPasswordRemoteForest -AsPlainText -Force
 	$adminCreds = $null
 	$adminCreds = New-Object System.Management.Automation.PSCredential $adminUserAccountRemoteForest, $secureAdminUserPasswordRemoteForest
-	
+
 	# Test To See If The AD Forest Is Accessible
 	Try {
 		# Retrieve Information About The AD Forest
@@ -1755,7 +1756,7 @@ If ($adForestAccessibility -eq $true) {
 		Logging "" "ERROR"
 		Logging "Aborting Script..." "ERROR"
 		Logging "" "ERROR"
-	
+
 		EXIT
 	}
 }
@@ -1766,19 +1767,16 @@ Logging "SELECT THE TARGET AD DOMAIN..." "HEADER"
 Logging
 
 # Retrieve Root AD Domain Of The AD Forest
-$rootADDomainInADForest = $null
+$rootADDomainInADForest = $listOfADDomainsInADForest = $partitionsContainerDN = $adForestMode = $null
 $rootADDomainInADForest = $thisADForest.RootDomain
 
 # Retrieve All The AD Domains In The AD Forest
-$listOfADDomainsInADForest = $null
 $listOfADDomainsInADForest = $thisADForest.Domains
 
 # Retrieve The DN Of The Partitions Container In The AD Forest
-$partitionsContainerDN = $null
 $partitionsContainerDN = $thisADForest.PartitionsContainer
 
 # Retrieve The Mode/Functional Level Of The AD Forest
-$adForestMode = $null
 $adForestMode = $thisADForest.ForestMode
 
 # Define An Empty List/Table That Will Contain All AD Domains In The AD Forest And Related Information
@@ -1792,15 +1790,15 @@ $nrOfDomainsInForest = 0
 $listOfADDomainsInADForest | ForEach-Object{
 	# Increase The Counter
 	$nrOfDomainsInForest += 1
-	
+
 	# Get The FQDN Of The AD Domain
 	$domainFQDN = $null
 	$domainFQDN = $_
-	
+
 	# Retrieve The Nearest RWDC In The AD Domain
 	$nearestRWDCInADDomain = $null
 	$nearestRWDCInADDomain = (Get-ADDomainController -DomainName $domainFQDN -Discover).HostName[0]
-	
+
 	# Retrieve The Object Of The AD Domain From AD
 	$domainObj = $null
 	Try {
@@ -1813,50 +1811,45 @@ $listOfADDomainsInADForest | ForEach-Object{
 	} Catch {
 		$domainObj = $null
 	}
-	
+
 	# Define The Columns For This AD Domain To Be Filled In
 	$tableOfADDomainsInADForestObj = "" | Select-Object Name,DomainSID,IsRootDomain,DomainMode,IsCurrentDomain,IsAvailable,PDCFsmoOwner,NearestRWDC
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
-	$tableOfADDomainsInADForestObj.Name = $null
+	$tableOfADDomainsInADForestObj.Name = $tableOfADDomainsInADForestObj.DomainSID = $tableOfADDomainsInADForestObj.IsRootDomain = $tableOfADDomainsInADForestObj.DomainMode = $tableOfADDomainsInADForestObj.IsCurrentDomain = $tableOfADDomainsInADForestObj.IsAvailable = $null
 	$tableOfADDomainsInADForestObj.Name = $domainFQDN
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
-	$tableOfADDomainsInADForestObj.DomainSID = $null
 	$tableOfADDomainsInADForestObj.DomainSID = $domainObj.DomainSID.Value
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
-	$tableOfADDomainsInADForestObj.IsRootDomain = $null
 	If ($rootADDomainInADForest -eq $domainFQDN) {
 		$tableOfADDomainsInADForestObj.IsRootDomain = "TRUE"
 	} Else {
 		$tableOfADDomainsInADForestObj.IsRootDomain = "FALSE"
 	}
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
-	$tableOfADDomainsInADForestObj.DomainMode = $null
 	If ($domainObj) {
 		$tableOfADDomainsInADForestObj.DomainMode = $domainObj.DomainMode
 	} Else {
 		$tableOfADDomainsInADForestObj.DomainMode = "AD Domain Is Not Available"
 	}
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
-	$tableOfADDomainsInADForestObj.IsCurrentDomain = $null
 	If ($domainFQDN -eq $currentADDomainOfLocalComputer) {
 		$tableOfADDomainsInADForestObj.IsCurrentDomain = "TRUE"
 	} Else {
 		$tableOfADDomainsInADForestObj.IsCurrentDomain = "FALSE"
 	}
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
-	$tableOfADDomainsInADForestObj.IsAvailable = $null
 	If ($domainObj) {
 		$tableOfADDomainsInADForestObj.IsAvailable = "TRUE"
 	} Else {
 		$tableOfADDomainsInADForestObj.IsAvailable = "FALSE"
 	}
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
 	$tableOfADDomainsInADForestObj.PDCFsmoOwner = $null
 	If ($domainObj) {
@@ -1864,7 +1857,7 @@ $listOfADDomainsInADForest | ForEach-Object{
 	} Else {
 		$tableOfADDomainsInADForestObj.PDCFsmoOwner = "AD Domain Is Not Available"
 	}
-	
+
 	# Set The Corresponding Value Of The AD Domain In The Correct Column Of The Table
 	$tableOfADDomainsInADForestObj.NearestRWDC = $null
 	If ($domainObj) {
@@ -1872,7 +1865,7 @@ $listOfADDomainsInADForest | ForEach-Object{
 	} Else {
 		$tableOfADDomainsInADForestObj.NearestRWDC = "AD Domain Is Not Available"
 	}
-	
+
 	# Add The Row For The AD Domain To The Table
 	$tableOfADDomainsInADForest += $tableOfADDomainsInADForestObj
 }
@@ -1891,7 +1884,7 @@ $targetedADdomainFQDN = $null
 $targetedADdomainFQDN = Read-Host
 
 # If No FQDN Of An AD Domain Is Specified, Then Use The AD Domain Of The Local Computer
-If ($targetedADdomainFQDN -eq "" -Or $null -eq $targetedADdomainFQDN) {
+If ([system.string]::IsNullOrEmpty($targetedADdomainFQDN)) {
 	$targetedADdomainFQDN = $currentADDomainOfLocalComputer
 }
 Logging
@@ -1958,7 +1951,7 @@ If ($localADforest -eq $true) {
 			Logging "" "ERROR"
 			Logging "Aborting Script..." "ERROR"
 			Logging "" "ERROR"
-			
+
 			EXIT
 		} Else {
 			# The User Account Running This Script Has Been Validated To Be A Member Of The Enterprise Admins Group Of The AD Forest
@@ -1994,7 +1987,7 @@ If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false) {
 		Logging "" "ERROR"
 		Logging "Aborting Script..." "ERROR"
 		Logging "" "ERROR"
-		
+
 		EXIT
 	}
 }
@@ -2013,7 +2006,7 @@ If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 		Logging "" "ERROR"
 		Logging "Aborting Script..." "ERROR"
 		Logging "" "ERROR"
-		
+
 		EXIT
 	}
 }
@@ -2023,16 +2016,14 @@ Logging "-----------------------------------------------------------------------
 Logging "GATHERING TARGETED AD DOMAIN INFORMATION..." "HEADER"
 Logging
 
+$targetedADdomainData = $targetedADdomainNearestRWDC = $thisADDomain = $null
 # Target AD Domain Data
-$targetedADdomainData = $null
 $targetedADdomainData = $tableOfADDomainsInADForest | Where-Object{$_.Name -eq $targetedADdomainFQDN}
 
 # Retrieve The HostName Of Nearest RWDC In The AD Domain
-$targetedADdomainNearestRWDC = $null
 $targetedADdomainNearestRWDC = $targetedADdomainData.NearestRWDC
 
 # Retrieve Information For The AD Domain That Was Chosen
-$thisADDomain = $null
 Try {
 	If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
 		$thisADDomain = Get-ADDomain $targetedADdomainFQDN -Server $targetedADdomainNearestRWDC
@@ -2060,7 +2051,7 @@ If ($thisADDomain) {
 	If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 		$targetedADdomainRWDCWithPDCFSMONTDSSettingsObjectDN = (Get-ADDomainController $targetedADdomainRWDCWithPDCFSMOFQDN -Server $targetedADdomainNearestRWDC -Credential $adminCreds).NTDSSettingsObjectDN
 	}
-	
+
 	# Retrieve Domain Functional Level/Mode Of The AD Domain
 	$targetedADdomainDomainFunctionalMode = $null
 	$targetedADdomainDomainFunctionalMode = $thisADDomain.DomainMode
@@ -2071,7 +2062,7 @@ If ($thisADDomain) {
 	If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 		$targetedADdomainDomainFunctionalModeLevel = (Get-ADObject -LDAPFilter "(&(objectClass=crossRef)(nCName=$('DC=' + $targetedADdomainFQDN.replace('.',',DC='))))" -SearchBase $partitionsContainerDN -Properties "msDS-Behavior-Version" -Server $targetedADdomainNearestRWDC -Credential $adminCreds)."msDS-Behavior-Version"
 	}
-	
+
 	# Determine The Max Tgt Lifetime In Hours And The Max Clock Skew In Minutes
 	Try {
 		$gpoObjXML = $null
@@ -2178,7 +2169,7 @@ If ($listOfRWDCsInADDomain) {
 		# Get The FQDN Of The RWDC
 		$rwdcFQDN = $null
 		$rwdcFQDN = $_
-		
+
 		# Retrieve The Object Of The RWDC From AD
 		$rwdcObj = $null
 		If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2187,14 +2178,14 @@ If ($listOfRWDCsInADDomain) {
 		If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 			$rwdcObj = Get-ADDomainController $rwdcFQDN -Server $targetedADdomainNearestRWDC -Credential $adminCreds
 		}
-		
+
 		# Define The Columns For The RWDCs In The AD Domain To Be Filled In
 		$tableOfDCsInADDomainObj = "" | Select-Object "Host Name",PDC,"Site Name","DS Type","Krb Tgt","Pwd Last Set","Org RWDC","Org Time","Ver","IP Address","OS Version",Reachable,"Source RWDC FQDN","Source RWDC DSA"
-		
+
 		# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."Host Name" = $null
 		$tableOfDCsInADDomainObj."Host Name" = $rwdcFQDN
-		
+
 		# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj.PDC = $null
 		If ($rwdcObj.OperationMasterRoles -contains "PDCEmulator") {
@@ -2202,15 +2193,15 @@ If ($listOfRWDCsInADDomain) {
 		} Else {
 			$tableOfDCsInADDomainObj.PDC = $False
 		}
-		
+
 		# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."Site Name" = $null
 		$tableOfDCsInADDomainObj."Site Name" = $rwdcObj.Site
-		
+
 		# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."DS Type" = $null
 		$tableOfDCsInADDomainObj."DS Type" = "Read/Write"
-		
+
 		# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 		$rwdcKrbTgtSamAccountName = $null
 		If ($modeOfOperationNr -eq 1 -Or $modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 4) {
@@ -2222,7 +2213,7 @@ If ($listOfRWDCsInADDomain) {
 			$rwdcKrbTgtSamAccountName = "krbtgt_TEST"
 		}
 		$tableOfDCsInADDomainObj."Krb Tgt" = $rwdcKrbTgtSamAccountName
-		
+
 		# Retrieve The Object Of The KrbTgt Account
 		$rwdcKrbTgtObject = $null
 		If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2240,14 +2231,14 @@ If ($listOfRWDCsInADDomain) {
 			# Retrieve The DN OF The Object
 			$rwdcKrbTgtObjectDN = $null
 			$rwdcKrbTgtObjectDN = $rwdcKrbTgtObject.DistinguishedName
-			
+
 			# Retrieve The Password Last Set Value Of The KrbTgt Account
 			$rwdcKrbTgtPwdLastSet = $null
 			$rwdcKrbTgtPwdLastSet = Get-Date $([datetime]::fromfiletime($rwdcKrbTgtObject.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$tableOfDCsInADDomainObj."Pwd Last Set" = $rwdcKrbTgtPwdLastSet
-			
+
 			# Retrieve The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object
 			$metadataObject = $null
 			If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2265,7 +2256,7 @@ If ($listOfRWDCsInADDomain) {
 				# Strip "CN=NTDS Settings," To End Up With The Server Object DN
 				$orgRWDCServerObjectDN = $null
 				$orgRWDCServerObjectDN = $orgRWDCNTDSSettingsObjectDN.SubString(("CN=NTDS Settings,").Length)
-				
+
 				# Connect To The Server Object DN
 				$orgRWDCServerObjectObj = $null
 				If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2282,7 +2273,7 @@ If ($listOfRWDCsInADDomain) {
 			$metadataObjectAttribPwdLastSetOrgTime = Get-Date $($metadataObjectAttribPwdLastSet.LastOriginatingChangeTime) -f "yyyy-MM-dd HH:mm:ss"
 			$metadataObjectAttribPwdLastSetVersion = $null
 			$metadataObjectAttribPwdLastSetVersion = $metadataObjectAttribPwdLastSet.Version
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$tableOfDCsInADDomainObj."Org RWDC" = $metadataObjectAttribPwdLastSetOrgRWDCFQDN
 			$tableOfDCsInADDomainObj."Org Time" = $metadataObjectAttribPwdLastSetOrgTime
@@ -2295,27 +2286,27 @@ If ($listOfRWDCsInADDomain) {
 			$tableOfDCsInADDomainObj."Org Time" = "No Such Object"
 			$tableOfDCsInADDomainObj."Ver" = "No Such Object"
 		}
-		
+
 		# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."IP Address" = $null
 		$tableOfDCsInADDomainObj."IP Address" = $rwdcObj.IPv4Address
-		
+
 		# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."OS Version" = $null
 		$tableOfDCsInADDomainObj."OS Version" = $rwdcObj.OperatingSystem
-		
+
 		# Define The Ports To Check Against
 		$ports = 135,389	# RPC Endpoint Mapper, LDAP
-		
+
 		# Define The Connection Check To Be True Initially
 		$connectionCheckOK = $true
-		
+
 		# For Every Defined Port Check The Connection And Report
 		$ports | ForEach-Object{
 			# Set The Port To Check Against
 			$port = $null
 			$port = $_
-			
+
 			# Test The Connection To The Server Using The Port
 			$connectionResult = $null
 			$connectionResult = portConnectionCheck $rwdcFQDN $port 500
@@ -2333,11 +2324,10 @@ If ($listOfRWDCsInADDomain) {
 			If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 				$rwdcRootDSEObj = New-Object System.DirectoryServices.DirectoryEntry(("LDAP://$rwdcFQDN/rootDSE"),$adminUserAccountRemoteForest, $adminUserPasswordRemoteForest)
 			}
-			If ($rwdcRootDSEObj.Path -eq $null) {
+			If ($null -eq $rwdcRootDSEObj.Path) {
 				# If It Throws An Error Then The RWDC Is Not Available/Reachable And Increase The Counter Of Unreachable RWDCs
 				$tableOfDCsInADDomainObj.Reachable = $False
 				$nrOfUnReachableRWDCs += 1
-				
 			} Else {
 				# If It Does Not Throw An Error Then The RWDC Is Available/Reachable And Increase The Counter Of Reachable RWDCs
 				$tableOfDCsInADDomainObj.Reachable = $True
@@ -2357,15 +2347,15 @@ If ($listOfRWDCsInADDomain) {
 			$tableOfDCsInADDomainObj."Source RWDC FQDN" = $targetedADdomainRWDCWithPDCFSMOFQDN
 			$tableOfDCsInADDomainObj."Source RWDC DSA" = $targetedADdomainRWDCWithPDCFSMONTDSSettingsObjectDN
 		}
-		
+
 		# Increase The Counter For The Number Of RWDCs
 		$nrOfRWDCs += 1
-		
+
 		# Add The Row For The RWDC To The Table
 		$tableOfDCsInADDomain += $tableOfDCsInADDomainObj
 	}
 }
-	
+
 # Retrieve All The RODCs In The AD Domain
 $listOfRODCsInADDomain = $null
 $listOfRODCsInADDomain = $thisADDomain.ReadOnlyReplicaDirectoryServers
@@ -2380,29 +2370,28 @@ $nrOfUnDetermined = 0
 If ($listOfRODCsInADDomain) {
 	$listOfRODCsInADDomain | ForEach-Object{
 		# Get The FQDN Of The RODC
-		$rodcFQDN = $null
+		$rodcFQDN = $rodcObj = $null
 		$rodcFQDN = $_
-		
+
 		# Get The FQDN Of The RODC
-		$rodcObj = $null
 		If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
 			$rodcObj = Get-ADDomainController $rodcFQDN -Server $targetedADdomainNearestRWDC
 		}
 		If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 			$rodcObj = Get-ADDomainController $rodcFQDN -Server $targetedADdomainNearestRWDC -Credential $adminCreds
 		}
-		
+
 		# Define The Columns For The RODCs In The AD Domain To Be Filled In
 		$tableOfDCsInADDomainObj = "" | Select-Object "Host Name",PDC,"Site Name","DS Type","Krb Tgt","Pwd Last Set","Org RWDC","Org Time","Ver","IP Address","OS Version",Reachable,"Source RWDC FQDN","Source RWDC DSA"
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."Host Name" = $null
 		$tableOfDCsInADDomainObj."Host Name" = $rodcFQDN
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj.PDC = $null
 		$tableOfDCsInADDomainObj.PDC = $False
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."Site Name" = $null
 		If ($rodcObj.OperatingSystem) {
@@ -2410,11 +2399,11 @@ If ($listOfRODCsInADDomain) {
 		} Else {
 			$tableOfDCsInADDomainObj."Site Name" = "Unknown"
 		}
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."DS Type" = $null
 		$tableOfDCsInADDomainObj."DS Type" = "Read-Only"
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$rodcKrbTgtSamAccountName = $null
 		If ($modeOfOperationNr -eq 1 -Or $modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 4) {
@@ -2435,11 +2424,11 @@ If ($listOfRODCsInADDomain) {
 				$rodcKrbTgtSamAccountName = $(((Get-ADObject $($rodcObj.ComputerObjectDN) -properties msDS-KrbTgtLink -Server $targetedADdomainNearestRWDC -Credential $adminCreds)."msDS-KrbTgtLink" | Get-ADObject -Server $targetedADdomainNearestRWDC -Credential $adminCreds).Name) + "_TEST"
 			}
 		}
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."Krb Tgt" = $null
 		$tableOfDCsInADDomainObj."Krb Tgt" = $rodcKrbTgtSamAccountName
-		
+
 		# Retrieve The Object Of The KrbTgt Account
 		$rodcKrbTgtObject = $null
 		If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2457,14 +2446,14 @@ If ($listOfRODCsInADDomain) {
 			# Retrieve The DN OF The Object
 			$rodcKrbTgtObjectDN = $null
 			$rodcKrbTgtObjectDN = $rodcKrbTgtObject.DistinguishedName		
-			
+
 			# Retrieve The Password Last Set Value Of The KrbTgt Account
 			$rodcKrbTgtPwdLastSet = $null
 			$rodcKrbTgtPwdLastSet = Get-Date $([datetime]::fromfiletime($rodcKrbTgtObject.pwdLastSet)) -f "yyyy-MM-dd HH:mm:ss"
-			
+
 			# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 			$tableOfDCsInADDomainObj."Pwd Last Set" = $rodcKrbTgtPwdLastSet
-			
+
 			# Retrieve The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object
 			$metadataObject = $null
 			If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2482,7 +2471,7 @@ If ($listOfRODCsInADDomain) {
 				# Strip "CN=NTDS Settings," To End Up With The Server Object DN
 				$orgRWDCServerObjectDN = $null
 				$orgRWDCServerObjectDN = $orgRWDCNTDSSettingsObjectDN.SubString(("CN=NTDS Settings,").Length)
-				
+
 				# Connect To The Server Object DN
 				$orgRWDCServerObjectObj = $null
 				If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2499,7 +2488,7 @@ If ($listOfRODCsInADDomain) {
 			$metadataObjectAttribPwdLastSetOrgTime = Get-Date $($metadataObjectAttribPwdLastSet.LastOriginatingChangeTime) -f "yyyy-MM-dd HH:mm:ss"
 			$metadataObjectAttribPwdLastSetVersion = $null
 			$metadataObjectAttribPwdLastSetVersion = $metadataObjectAttribPwdLastSet.Version
-			
+
 			# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 			$tableOfDCsInADDomainObj."Org RWDC" = $metadataObjectAttribPwdLastSetOrgRWDCFQDN
 			$tableOfDCsInADDomainObj."Org Time" = $metadataObjectAttribPwdLastSetOrgTime
@@ -2512,7 +2501,7 @@ If ($listOfRODCsInADDomain) {
 			$tableOfDCsInADDomainObj."Org Time" = "No Such Object"
 			$tableOfDCsInADDomainObj."Ver" = "No Such Object"
 		}
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."IP Address" = $null
 		If ($rodcObj.OperatingSystem) {
@@ -2520,7 +2509,7 @@ If ($listOfRODCsInADDomain) {
 		} Else {
 			$tableOfDCsInADDomainObj."IP Address" = "Unknown"
 		}
-		
+
 		# Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 		$tableOfDCsInADDomainObj."OS Version" = $null
 		If ($rodcObj.OperatingSystem) {
@@ -2528,21 +2517,20 @@ If ($listOfRODCsInADDomain) {
 		} Else {
 			$tableOfDCsInADDomainObj."OS Version" = "Unknown"
 		}
-		
+
 		# Define The Ports To Check Against
 		$ports = 135,389	# RPC Endpoint Mapper, LDAP
-		
+
 		# Define The Connection Check To Be True Initially
 		$connectionCheckOK = $true
-		
+
 		# For Every Defined Port Check The Connection And Report
 		$ports | ForEach-Object{
 			# Set The Port To Check Against
-			$port = $null
+			$port = $connectionResult = $null
 			$port = $_
-			
+
 			# Test The Connection To The Server Using The Port
-			$connectionResult = $null
 			$connectionResult = portConnectionCheck $rodcFQDN $port 500
 			If ($connectionResult -eq "ERROR") {
 				$connectionCheckOK = $false
@@ -2558,7 +2546,7 @@ If ($listOfRODCsInADDomain) {
 			If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 				$rodcRootDSEObj = New-Object System.DirectoryServices.DirectoryEntry(("LDAP://$rodcFQDN/rootDSE"),$adminUserAccountRemoteForest, $adminUserPasswordRemoteForest)
 			}
-			If ($rodcRootDSEObj.Path -eq $null) {
+			If ($null -eq $rodcRootDSEObj.Path) {
 				# If It Throws An Error Then The RODC Is Not Available/Reachable And Increase The Counter Of Unreachable RODCs
 				$tableOfDCsInADDomainObj.Reachable = $False
 				$nrOfUnReachableRODCs += 1
@@ -2579,7 +2567,7 @@ If ($listOfRODCsInADDomain) {
 				# Get The DSA DN Of The RODC
 				$rodcNTDSSettingsObjectDN = $null
 				$rodcNTDSSettingsObjectDN = $rodcObj.NTDSSettingsObjectDN
-				
+
 				# Define An LDAP Query With A Search Base And A Filter To Determine The DSA DN Of The Source RWDC Of The RODC
 				$dsDirSearcher = $null
 				$dsDirSearcher = New-Object DirectoryServices.DirectorySearcher([ADSI]"")
@@ -2594,14 +2582,13 @@ If ($listOfRODCsInADDomain) {
 				$dsDirSearcher.Filter = "(&(objectClass=nTDSConnection)(ms-DS-ReplicatesNCReason=*))"
 				$sourceRWDCsNTDSSettingsObjectDN = $null
 				$sourceRWDCsNTDSSettingsObjectDN = $dsDirSearcher.FindAll().Properties.fromserver
-				
+
 				# For Every DSA DN Of The Source RWDC Retrieved
 				$sourceRWDCsNTDSSettingsObjectDN | ForEach-Object{
-					$sourceRWDCNTDSSettingsObjectDN = $null
+					$sourceRWDCNTDSSettingsObjectDN = $sourceRWDCServerObjectDN = $null
 					$sourceRWDCNTDSSettingsObjectDN = $_
-					
+
 					# Strip "CN=NTDS Settings," To End Up With The Server Object DN
-					$sourceRWDCServerObjectDN = $null
 					$sourceRWDCServerObjectDN = $sourceRWDCNTDSSettingsObjectDN.SubString(("CN=NTDS Settings,").Length)
 					
 					# Connect To The Server Object DN
@@ -2611,12 +2598,12 @@ If ($listOfRODCsInADDomain) {
 					If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 						$sourceRWDCServerObjectObj = New-Object System.DirectoryServices.DirectoryEntry(("LDAP://$targetedADdomainNearestRWDC/$sourceRWDCServerObjectDN"),$adminUserAccountRemoteForest, $adminUserPasswordRemoteForest)
 					}
-					
+
 					# If The Domain Of The Source RWDC Matches The Domain Of The RODC, Then That's The One We Need
 					If (($sourceRWDCServerObjectObj.dnshostname).SubString($sourceRWDCServerObjectObj.name.Length + 1) -eq $rodcObj.Domain) {
 						# The HostName Of Source RWDC Used By The RODC - Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 						$tableOfDCsInADDomainObj."Source RWDC FQDN" = $sourceRWDCServerObjectObj.dnshostname[0]
-						
+
 						# The DSA DN Of Source RWDC Used By The RODC - Set The Corresponding Value Of The RODC In The Correct Column Of The Table
 						$tableOfDCsInADDomainObj."Source RWDC DSA" = $sourceRWDCsNTDSSettingsObjectDN[0]
 					}
@@ -2703,37 +2690,37 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 	Logging "Please specify the scope of KrbTgt Account to target: " "ACTION-NO-NEW-LINE"
 	$targetKrbTgtAccountNr = Read-Host
 	Logging
-	
+
 	# If Anything Else Than The Allowed/Available Non-Zero KrbTgt Accounts, Abort The Script
 	If (($targetKrbTgtAccountNr -ne 1 -And $targetKrbTgtAccountNr -ne 2 -And $targetKrbTgtAccountNr -ne 3 -And $targetKrbTgtAccountNr -ne 4) -Or $targetKrbTgtAccountNr -notmatch "^[\d\.]+$") {
 		Logging "  --> Chosen Scope KrbTgt Account Target: 0 - Exit Script..." "REMARK"
 		Logging
-		
+
 		EXIT
 	}
-	
+
 	# If KrbTgt Account Scope 1
 	If ($targetKrbTgtAccountNr -eq 1) {
 		$targetKrbTgtAccountDescription = "1 - Scope of KrbTgt in use by all RWDCs in the AD Domain..."
 	}
-	
+
 	# If KrbTgt Account Scope 2
 	If ($targetKrbTgtAccountNr -eq 2) {
 		$targetKrbTgtAccountDescription = "2 - Scope of KrbTgt in use by specific RODC - Single RODC in the AD Domain..."
 	}
-	
+
 	# If KrbTgt Account Scope 3
 	If ($targetKrbTgtAccountNr -eq 3) {
 		$targetKrbTgtAccountDescription = "3 - Scope of KrbTgt in use by specific RODC - Multiple RODCs in the AD Domain..."
 	}
-	
+
 	# If KrbTgt Account Scope 4
 	If ($targetKrbTgtAccountNr -eq 4) {
 		$targetKrbTgtAccountDescription = "4 - Scope of KrbTgt in use by specific RODC - All RODCs in the AD Domain..."
 	}
 	Logging "  --> Chosen Scope KrbTgt Account Target: $targetKrbTgtAccountDescription" "REMARK"
 	Logging
-	
+
 	# If KrbTgt Account 2 Specify The FQDN Of A Single RODC To Target
 	If ($targetKrbTgtAccountNr -eq 2) {
 		Logging "Specify the FQDN of single RODC for which the KrbTgt Account Password must be reset: " "ACTION-NO-NEW-LINE"
@@ -2743,7 +2730,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		Logging "       * $targetRODCFQDNList" "REMARK"
 		Logging
 	}
-	
+
 	# If KrbTgt Account 3 Specify A Comma Separated List Of FQDNs Of RODCs To Target
 	If ($targetKrbTgtAccountNr -eq 3) {
 		Logging "Specify a comma-separated list of FQDNs of RODCs for which the KrbTgt Account Password must be reset: " "ACTION-NO-NEW-LINE"
@@ -2766,19 +2753,19 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		Logging "SIMULATION MODE (MODE $modeOfOperationNr) - CREATING/REPLICATING TEMPORARY CANARY OBJECT ($targetKrbTgtAccountDescription)" "HEADER"
 		Logging
 	}
-	
+
 	# Mode 3 - Simulation Mode AND Mode 4 - Real Reset Mode
 	If ($modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
 		Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 		Logging "REAL RESET MODE (MODE $modeOfOperationNr) - RESETTING PASSWORD OF SCOPED KRBTGT ACCOUNT(S) ($targetKrbTgtAccountDescription)" "HEADER"
 		Logging
 	}
-	
+
 	# Asking Confirmation To Continue Or Not
 	Logging "Do you really want to continue and execute 'Mode $modeOfOperationNr'? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
 	$continueOrStop = $null
 	$continueOrStop = Read-Host
-	
+
 	# Any Confirmation Not Equal To CONTINUE Will Be Equal To STOP
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		$continueOrStop = "STOP"
@@ -2786,22 +2773,22 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 	Logging
 	Logging "  --> Chosen: $continueOrStop" "REMARK"
 	Logging
-	
+
 	# Any Confirmation Not Equal To CONTINUE Will Abort The Script
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		EXIT
 	}	
-	
+
 	# KrbTgt in use by all RWDCs in the AD Domain
 	If ($targetKrbTgtAccountNr -eq 1) {
 		# Retrieve The KrbTgt Account Listed For The RWDC With The PDC FSMO
 		$krbTgtSamAccountName = $null
 		$krbTgtSamAccountName = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Krb Tgt"
-		
+
 		# Retrieve The Hosted Listed For The RWDC With The PDC FSMO
 		$targetedADdomainSourceRWDCFQDN = $null
 		$targetedADdomainSourceRWDCFQDN = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Host Name"
-		
+
 		# Retrieve The DN Of The KrbTgt Account
 		$krbTgtDN = $null
 		If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2819,26 +2806,26 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		# Retrieve The Status Of Hosting The PDC FSMO From The RWDC Hosting The PDC FSMO (Duh!)
 		$targetedADdomainSourceRWDCIsPDC = $null
 		$targetedADdomainSourceRWDCIsPDC = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True}).PDC
-		
+
 		# Retrieve The SiteName Listed For The RWDC With The PDC FSMO
 		$targetedADdomainSourceRWDCSiteName = $null
 		$targetedADdomainSourceRWDCSiteName = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Site Name"
-		
+
 		# Retrieve The DS Type Listed For The RWDC With The PDC FSMO
 		$targetedADdomainSourceRWDCDSType = $null
 		$targetedADdomainSourceRWDCDSType = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."DS Type"
-		
+
 		# Retrieve The IP Address Listed For The RWDC With The PDC FSMO
 		$targetedADdomainSourceRWDCIPAddress = $null
 		$targetedADdomainSourceRWDCIPAddress = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."IP Address"
-		
+
 		# Retrieve The Reachability Listed For The RWDC With The PDC FSMO
 		$targetedADdomainRWDCReachability = $null
 		$targetedADdomainRWDCReachability = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True}).Reachable
-		
+
 		# Retrieve The FQDN Of The Source RWDC Listed For The RWDC With The PDC FSMO
 		$targetedADdomainRWDCSourceRWDCFQDN = "N.A."
-		
+
 		# Set The Start Time For The RWDC With The PDC FSMO
 		$targetedADdomainRWDCTime = 0.00
 
@@ -2853,7 +2840,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 					EXIT
 				}
 			}
-			
+
 			# If Mode 3 Or 4
 			If ($modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
 				# Retrieve The KrbTgt Account Object
@@ -2867,19 +2854,16 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 				If ($targetObjectToCheck) {
 					# If The KrbTgt Account Object Exists (You're In Deep Sh!t If The Account Does Not Exist! :-))
 					# Retrieve The DN Of The KrbTgt Account Object
-					$targetObjectToCheckDN = $null
-					$targetObjectToCheckDN = $targetObjectToCheck.DistinguishedName			
+					$targetObjectToCheckDN = $targetObjectToCheckPwdLastSet = $expirationTimeForNMinusOneKerbTickets = $metadataObject = $null
+					$targetObjectToCheckDN = $targetObjectToCheck.DistinguishedName
 					
 					# Retrieve The Password Last Set Of The KrbTgt Account Object
-					$targetObjectToCheckPwdLastSet = $null
 					$targetObjectToCheckPwdLastSet = Get-Date $([datetime]::fromfiletime($targetObjectToCheck.pwdLastSet))
-					
+
 					# Calculate The Expiration Date/Time Of N-1 Kerberos Tickets
-					$expirationTimeForNMinusOneKerbTickets = $null
 					$expirationTimeForNMinusOneKerbTickets = (($targetObjectToCheckPwdLastSet.AddHours($targetedADdomainMaxTgtLifetimeHrs)).AddMinutes($targetedADdomainMaxClockSkewMins)).AddMinutes($targetedADdomainMaxClockSkewMins)
 
 					# Retrieve The Metadata Of The Object, And More Specific Of The pwdLastSet Attribute Of That Object
-					$metadataObject = $null
 					If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
 						$metadataObject = Get-ADReplicationAttributeMetadata $targetObjectToCheckDN -Server $targetedADdomainRWDCWithPDCFSMOFQDN
 					}
@@ -2895,7 +2879,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 						# Strip "CN=NTDS Settings," To End Up With The Server Object DN
 						$orgRWDCServerObjectDN = $null
 						$orgRWDCServerObjectDN = $orgRWDCNTDSSettingsObjectDN.SubString(("CN=NTDS Settings,").Length)
-						
+
 						# Connect To The Server Object DN
 						$orgRWDCServerObjectObj = $null
 						If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -2934,7 +2918,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 						Logging "What do you want to do? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
 						$continueOrStop = $null
 						$continueOrStop = Read-Host
-						
+
 						# Any Confirmation Not Equal To CONTINUE Will Be Equal To STOP
 						If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 							$continueOrStop = "STOP"
@@ -2955,7 +2939,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 						setPasswordOfADAccount $targetedADdomainSourceRWDCFQDN $krbTgtSamAccountName $localADforest $remoteCredsUsed $adminCreds
 					} Else {
 						# If Not OK To Reset Then Abort
-						
+
 						EXIT
 					}
 				} Else {
@@ -2966,56 +2950,56 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 			}
 		} Else {
 			# If The RWDC With The PDC FSMO Is NOT Reachable
-		
+
 			Logging
 			Logging "The RWDC '$targetedADdomainSourceRWDCFQDN' to make the change on is not reachable/available..." "ERROR"
 			Logging
 		}
-		
+
 		# If The DN Of The Target Object To Check (Temp Canary Object Or KrbTgt Account, Depends On The Mode Chosen) Was Determined/Found
 		If ($targetObjectToCheckDN) {
 			# Retrieve/Define The Starting List With RWDCs
 			$listOfDCsToCheckObjectOnStart = $null
 			$listOfDCsToCheckObjectOnStart = ($tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read/Write"})
-			
+
 			# Define An Empty List/Table For At The End That Will Contain All DCs In The AD Domain And Related Information
 			$listOfDCsToCheckObjectOnEnd = @()
-			
+
 			# Define The Columns For The RWDCs In The AD Domain To Be Filled In
 			$listOfDCsToCheckObjectOnEndObj = "" | Select-Object "Host Name",PDC,"Site Name","DS Type","IP Address",Reachable,"Source RWDC FQDN",Time
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj."Host Name" = $null
 			$listOfDCsToCheckObjectOnEndObj."Host Name" = $targetedADdomainSourceRWDCFQDN
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj.PDC = $null
 			$listOfDCsToCheckObjectOnEndObj.PDC = $targetedADdomainSourceRWDCIsPDC
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj."Site Name" = $null
 			$listOfDCsToCheckObjectOnEndObj."Site Name" = $targetedADdomainSourceRWDCSiteName
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj."DS Type" = $null
 			$listOfDCsToCheckObjectOnEndObj."DS Type" = $targetedADdomainSourceRWDCDSType
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj."IP Address" = $null
 			$listOfDCsToCheckObjectOnEndObj."IP Address" = $targetedADdomainSourceRWDCIPAddress
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj.Reachable = $null
 			$listOfDCsToCheckObjectOnEndObj.Reachable = $targetedADdomainRWDCReachability
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj."Source RWDC FQDN" = $null
 			$listOfDCsToCheckObjectOnEndObj."Source RWDC FQDN" = $targetedADdomainRWDCSourceRWDCFQDN
-			
+
 			# Set The Corresponding Value Of The RWDC In The Correct Column Of The Table
 			$listOfDCsToCheckObjectOnEndObj.Time = $null
 			$listOfDCsToCheckObjectOnEndObj.Time = $targetedADdomainRWDCTime
-			
+
 			# Add The Row For The RWDC To The Table
 			$listOfDCsToCheckObjectOnEnd += $listOfDCsToCheckObjectOnEndObj
 
@@ -3023,32 +3007,32 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 			checkADReplicationConvergence $targetedADdomainFQDN $targetedADdomainSourceRWDCFQDN $targetObjectToCheckDN $listOfDCsToCheckObjectOnStart $listOfDCsToCheckObjectOnEnd $modeOfOperationNr $localADforest $remoteCredsUsed $adminCreds
 		}
 	}
-	
+
 	# KrbTgt in use by specific RODC - Single RODC in the AD Domain Or KrbTgt in use by specific RODC - Multiple RODCs in the AD Domain, but not all
 	If ($targetKrbTgtAccountNr -eq 2 -Or $targetKrbTgtAccountNr -eq 3) {
 		# Collection Of Reachable RODCs Specified To Be Targeted
 		$collectionOfReachableRODCsToProcess = $null
 		$collectionOfReachableRODCsToProcess = $tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read-Only" -And $_."Source RWDC FQDN" -ne "Unknown" -And $_."Source RWDC FQDN" -ne "RODC Unreachable" -And $targetRODCFQDNList -contains $_."Host Name"}
-		
+
 		# Collection Of UnReachable RODCs Specified To Be Targeted
 		$collectionOfUnReachableRODCsToProcess = $null
 		$collectionOfUnReachableRODCsToProcess = $tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read-Only" -And $_."Source RWDC FQDN" -eq "RODC Unreachable" -And $targetRODCFQDNList -contains $_."Host Name"}
-		
+
 		# Collection Of Unknown RODCs Specified To Be Targeted
 		$collectionOfUnknownRODCsToProcess = $null
 		$collectionOfUnknownRODCsToProcess = $tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read-Only" -And $_."Source RWDC FQDN" -eq "Unknown" -And $targetRODCFQDNList -contains $_."Host Name"}
 	}
-	
+
 	# KrbTgt in use by specific RODC - All RODCs in the AD Domain
 	If ($targetKrbTgtAccountNr -eq 4) {
 		# Collection Of Reachable RODCs Specified To Be Targeted
 		$collectionOfReachableRODCsToProcess = $null
 		$collectionOfReachableRODCsToProcess = $tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read-Only" -And $_."Source RWDC FQDN" -ne "Unknown" -And $_."Source RWDC FQDN" -ne "RODC Unreachable"}
-		
+
 		# Collection Of UnReachable RODCs Specified To Be Targeted
 		$collectionOfUnReachableRODCsToProcess = $null
 		$collectionOfUnReachableRODCsToProcess = $tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read-Only" -And $_."Source RWDC FQDN" -eq "RODC Unreachable"}
-		
+
 		# Collection Of Unknown RODCs Specified To Be Targeted
 		$collectionOfUnknownRODCsToProcess = $null
 		$collectionOfUnknownRODCsToProcess = $tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read-Only" -And $_."Source RWDC FQDN" -eq "Unknown"}
@@ -3058,35 +3042,30 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		# If Any RODC Object Exists In The Reachable RODC List
 		If ($collectionOfReachableRODCsToProcess) {
 			$collectionOfReachableRODCsToProcess | ForEach-Object{
+				$rodcToProcess = $krbTgtSamAccountName = $rodcFQDNTarget = $rodcSiteTarget = $targetedADdomainSourceRWDCFQDN = $krbTgtObject = $null
 				# Retrieve The RODC Object In The List
-				$rodcToProcess = $null
 				$rodcToProcess = $_
-				
+
 				# Retrieve The sAMAccountName Of The KrbTgt Account In Use By The RODC
-				$krbTgtSamAccountName = $null
 				$krbTgtSamAccountName = $rodcToProcess."Krb Tgt"
-				
+
 				# Retrieve The HostName Of The RODC
-				$rodcFQDNTarget = $null
 				$rodcFQDNTarget = $rodcToProcess."Host Name"
-				
+
 				# Retrieve The SiteName Of The RODC
-				$rodcSiteTarget = $null
 				$rodcSiteTarget = $rodcToProcess."Site Name"
-				
+
 				# Retrieve The HostName Source RWDC Used By The RODC
-				$targetedADdomainSourceRWDCFQDN = $null
 				$targetedADdomainSourceRWDCFQDN = $rodcToProcess."Source RWDC FQDN"
-				
+
 				# Retrieve The KrbTgt Account Object
-				$krbTgtObject = $null
 				If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
 					$krbTgtObject = Get-ADUser -LDAPFilter "(sAMAccountName=$krbTgtSamAccountName)" -Server $targetedADdomainSourceRWDCFQDN
 				}
 				If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 					$krbTgtObject = Get-ADUser -LDAPFilter "(sAMAccountName=$krbTgtSamAccountName)" -Server $targetedADdomainSourceRWDCFQDN -Credential $adminCreds
 				}
-				
+
 				# Retrieve The DN Of The KrbTgt Account Object
 				$krbTgtObjectDN = $null
 				$krbTgtObjectDN = $krbTgtObject.DistinguishedName
@@ -3095,7 +3074,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 				Logging "+++ Used By RODC.................: '$rodcFQDNTarget' (Site: $rodcSiteTarget) +++" "REMARK"
 				Logging "+++++" "REMARK"
 				Logging "" "REMARK"
-			
+
 				# Retrieve The Object Of The Source RWDC Specified For The RODC
 				$targetedADdomainSourceRWDCObj = $null
 				If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -3104,7 +3083,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 				If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 					$targetedADdomainSourceRWDCObj = Get-ADDomainController $targetedADdomainSourceRWDCFQDN -Server $targetedADdomainNearestRWDC -Credential $adminCreds
 				}
-				
+
 				# Retrieve If The Source RWDC Specified For The RODC Is The RWDC With The PDC FSMO
 				$targetedADdomainSourceRWDCIsPDC = $null
 				If ($targetedADdomainSourceRWDCFQDN -eq $targetedADdomainRWDCWithPDCFSMOFQDN) {
@@ -3112,66 +3091,66 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 				} Else {
 					$targetedADdomainSourceRWDCIsPDC = $False
 				}
-				
+
 				# Retrieve The SiteName Of The Source RWDC Specified For The RODC
 				$targetedADdomainSourceRWDCSiteName = $null
 				$targetedADdomainSourceRWDCSiteName = $targetedADdomainSourceRWDCObj.Site
-				
+
 				# Retrieve The DS Type Of The Source RWDC Specified For The RODC
 				$targetedADdomainSourceRWDCDSType = "Read/Write"
-				
+
 				# Retrieve The IP Address Of The Source RWDC Specified For The RODC
 				$targetedADdomainSourceRWDCIPAddress = $null
 				$targetedADdomainSourceRWDCIPAddress = $targetedADdomainSourceRWDCObj.IPv4Address
-				
+
 				# Retrieve The Reachability Of The Source RWDC Specified For The RODC
 				$targetedADdomainSourceRWDCReachability = $null
 				$targetedADdomainSourceRWDCReachability = ($tableOfDCsInADDomain | Where-Object{$_."Host Name" -eq $targetedADdomainSourceRWDCFQDN}).Reachable
-				
+
 				# Set The Start Time For The Source RWDC Specified For The RODC
 				$targetedADdomainSourceRWDCTime = 0.00
 
 				# Define An Empty List/Table That Will Contain All DCs In The AD Domain And Related Information
 				# Define An Empty Starting List With DCs
 				$listOfDCsToCheckObjectOnStart = @()
-				
+
 				# Add The Row For The DC To The Table
 				$listOfDCsToCheckObjectOnStart += $rodcToProcess
-				
+
 				# Define The Columns For This DC To Be Filled In
 				$listOfDCsToCheckObjectOnStartObj = "" | Select-Object "Host Name",PDC,"Site Name","DS Type","IP Address",Reachable,"Source RWDC FQDN","Source RWDC DSA"
-				
+
 				# Set The Corresponding Value Of The DC In The Correct Column Of The Table
 				$listOfDCsToCheckObjectOnStartObj."Host Name" = $null
 				$listOfDCsToCheckObjectOnStartObj."Host Name" = $targetedADdomainSourceRWDCFQDN
-				
+
 				# Set The Corresponding Value Of The DC In The Correct Column Of The Table
 				$listOfDCsToCheckObjectOnStartObj.PDC = $null
 				$listOfDCsToCheckObjectOnStartObj.PDC = $targetedADdomainSourceRWDCIsPDC
-				
+
 				# Set The Corresponding Value Of The DC In The Correct Column Of The Table
 				$listOfDCsToCheckObjectOnStartObj."Site Name" = $null
 				$listOfDCsToCheckObjectOnStartObj."Site Name" = $targetedADdomainSourceRWDCSiteName
-				
+
 				# Set The Corresponding Value Of The DC In The Correct Column Of The Table
 				$listOfDCsToCheckObjectOnStartObj."DS Type" = $null
 				$listOfDCsToCheckObjectOnStartObj."DS Type" = $targetedADdomainSourceRWDCDSType
-				
+
 				# Set The Corresponding Value Of The DC In The Correct Column Of The Table
 				$listOfDCsToCheckObjectOnStartObj."IP Address" = $null
 				$listOfDCsToCheckObjectOnStartObj."IP Address" = $targetedADdomainSourceRWDCIPAddress
-				
+
 				# Set The Corresponding Value Of The DC In The Correct Column Of The Table
 				$listOfDCsToCheckObjectOnStartObj.Reachable = $null
 				$listOfDCsToCheckObjectOnStartObj.Reachable = $targetedADdomainSourceRWDCReachability
-				
+
 				# Set The Corresponding Value Of The DC In The Correct Column Of The Table
 				$listOfDCsToCheckObjectOnStartObj."Source RWDC FQDN" = "N.A."
 				$listOfDCsToCheckObjectOnStartObj."Source RWDC DSA" = "N.A."
-				
+
 				# Add The Row For The DC To The Table
 				$listOfDCsToCheckObjectOnStart += $listOfDCsToCheckObjectOnStartObj
-				
+
 				# Sort The List Of DCs Based Upon DS Type
 				$listOfDCsToCheckObjectOnStart = $listOfDCsToCheckObjectOnStart | Sort-Object -Property @{Expression = "DS Type"; Descending = $False}
 
@@ -3308,7 +3287,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 					Logging "The RWDC '$targetedADdomainSourceRWDCFQDN' to make the change on is not reachable/available..." "ERROR"
 					Logging
 				}
-				
+
 				# If The DN Of The Target Object To Check (Temp Canary Object Or KrbTgt Account, Depends On The Mode Chosen) Was Determined/Found
 				If ($targetObjectToCheckDN) {
 					# If The Confirmation Equals CONTINUE
@@ -3367,23 +3346,23 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 				# Retrieve The RODC Object In The List
 				$rodcToProcess = $null
 				$rodcToProcess = $_
-				
+
 				# Retrieve The sAMAccountName Of The KrbTgt Account In Use By The RODC
 				$krbTgtSamAccountName = $null
 				$krbTgtSamAccountName = $rodcToProcess."Krb Tgt"
-				
+
 				# Retrieve The HostName Of The RODC
 				$rodcFQDNTarget = $null
 				$rodcFQDNTarget = $rodcToProcess."Host Name"
-				
+
 				# Retrieve The SiteName Of The RODC
 				$rodcSiteTarget = $null
 				$rodcSiteTarget = $rodcToProcess."Site Name"
-				
+
 				# Retrieve The HostName Source RWDC Used By The RODC
 				$targetedADdomainSourceRWDCFQDN = $null
 				$targetedADdomainSourceRWDCFQDN = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Host Name"
-				
+
 				# Retrieve The DN Of The KrbTgt Account Object
 				$krbTgtDN = $null
 				If ($localADforest -eq $true -Or ($remoteADforest -eq $true -And $remoteCredsUsed -eq $false)) {
@@ -3401,29 +3380,29 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 				# Retrieve The Status Of Hosting The PDC FSMO From The RWDC Hosting The PDC FSMO (Duh!)
 				$targetedADdomainSourceRWDCIsPDC = $null
 				$targetedADdomainSourceRWDCIsPDC = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True}).PDC
-				
+
 				# Retrieve The SiteName Listed For The RWDC With The PDC FSMO
 				$targetedADdomainSourceRWDCSiteName = $null
 				$targetedADdomainSourceRWDCSiteName = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Site Name"
-				
+
 				# Retrieve The DS Type Listed For The RWDC With The PDC FSMO
 				$targetedADdomainSourceRWDCDSType = $null
 				$targetedADdomainSourceRWDCDSType = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."DS Type"
-				
+
 				# Retrieve The IP Address Listed For The RWDC With The PDC FSMO
 				$targetedADdomainSourceRWDCIPAddress = $null
 				$targetedADdomainSourceRWDCIPAddress = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."IP Address"
-				
+
 				# Retrieve The Reachability Listed For The RWDC With The PDC FSMO
 				$targetedADdomainRWDCReachability = $null
 				$targetedADdomainRWDCReachability = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True}).Reachable
-				
+
 				# Retrieve The FQDN Of The Source RWDC Listed For The RWDC With The PDC FSMO
 				$targetedADdomainRWDCSourceRWDCFQDN = "N.A."
-				
+
 				# Set The Start Time For The RWDC With The PDC FSMO
 				$targetedADdomainRWDCTime = 0.00
-				
+
 				If ($targetedADdomainRWDCReachability) {
 					# If The RWDC With The PDC FSMO Is Reachable
 					# If Mode 2
@@ -3575,7 +3554,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 			Logging "+++ The Following Look Like RODCs, But May Not Be Real RODCs..." "REMARK"
 			Logging "+++++" "REMARK"
 			Logging "" "REMARK"
-			
+
 			# For Every Unknown RODC
 			$collectionOfUnknownRODCsToProcess | ForEach-Object{
 				$rodcToProcess = $null
@@ -3600,7 +3579,7 @@ If ($modeOfOperationNr -eq 8) {
 	Logging "Do you really want to continue and execute 'Mode $modeOfOperationNr'? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
 	$continueOrStop = $null
 	$continueOrStop = Read-Host
-	
+
 	# Any Confirmation Not Equal To CONTINUE Will Be Equal To STOP
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		$continueOrStop = "STOP"
@@ -3608,16 +3587,16 @@ If ($modeOfOperationNr -eq 8) {
 	Logging
 	Logging "  --> Chosen: $continueOrStop" "REMARK"
 	Logging
-	
+
 	# Any Confirmation Not Equal To CONTINUE Will Abort The Script
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		EXIT
 	}	
-	
+
 	# Retrieve The FQDN Of The RWDC With The PDC FSMO To Create The TEST/BOGUS KrbTgt Account Objects
 	$targetedADdomainSourceRWDCFQDN = $null
 	$targetedADdomainSourceRWDCFQDN = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Host Name"
-	
+
 	# Determine The KrbTgt Account In Use By The RWDC with The PDC FSMO (Representative For All RWDCs In The AD Domain)
 	$krbTgtSamAccountName = $null
 	$krbTgtSamAccountName = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Krb Tgt"
@@ -3626,7 +3605,7 @@ If ($modeOfOperationNr -eq 8) {
 	Logging "+++ Used By RWDC.................: 'All RWDCs' +++" "REMARK"
 	Logging "+++++" "REMARK"
 	Logging "" "REMARK"
-	
+
 	# Execute The Create Test KrbTgt Accounts Function To Create The TEST/BOGUS KrbTgt Account For RWDCs
 	createTestKrbTgtADAccount $targetedADdomainSourceRWDCFQDN $krbTgtSamAccountName "RWDC" $targetedADdomainDomainSID $localADforest $remoteCredsUsed $adminCreds
 
@@ -3635,15 +3614,15 @@ If ($modeOfOperationNr -eq 8) {
 		# Retrieve The RODC Object In The List
 		$rodcToProcess = $null
 		$rodcToProcess = $_
-		
+
 		# Retrieve The sAMAccountName Of The KrbTgt Account In Use By The RODC
 		$krbTgtSamAccountName = $null
 		$krbTgtSamAccountName = $rodcToProcess."Krb Tgt"
-		
+
 		# Retrieve The HostName Of The RODC
 		$rodcFQDNTarget = $null
 		$rodcFQDNTarget = $rodcToProcess."Host Name"
-		
+
 		# Retrieve The SiteName Of The RODC
 		$rodcSiteTarget = $null
 		$rodcSiteTarget = $rodcToProcess."Site Name"
@@ -3652,7 +3631,7 @@ If ($modeOfOperationNr -eq 8) {
 		Logging "+++ Used By RODC.................: '$rodcFQDNTarget' (Site: $rodcSiteTarget) +++" "REMARK"
 		Logging "+++++" "REMARK"
 		Logging "" "REMARK"
-		
+
 		# Execute The Create Test KrbTgt Accounts Function To Create The TEST/BOGUS KrbTgt Account For Each RODC		
 		createTestKrbTgtADAccount $targetedADdomainSourceRWDCFQDN $krbTgtSamAccountName "RODC" $targetedADdomainDomainSID $localADforest $remoteCredsUsed $adminCreds
 	}
@@ -3668,7 +3647,7 @@ If ($modeOfOperationNr -eq 9) {
 	Logging "Do you really want to continue and execute 'Mode $modeOfOperationNr'? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
 	$continueOrStop = $null
 	$continueOrStop = Read-Host
-	
+
 	# Any Confirmation Not Equal To CONTINUE Will Be Equal To STOP
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		$continueOrStop = "STOP"
@@ -3676,16 +3655,16 @@ If ($modeOfOperationNr -eq 9) {
 	Logging
 	Logging "  --> Chosen: $continueOrStop" "REMARK"
 	Logging
-	
+
 	# Any Confirmation Not Equal To CONTINUE Will Abort The Script
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		EXIT
 	}	
-	
+
 	# Retrieve The FQDN Of The RWDC With The PDC FSMO To Delete The TEST/BOGUS KrbTgt Account Objects
 	$targetedADdomainSourceRWDCFQDN = $null
 	$targetedADdomainSourceRWDCFQDN = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Host Name"
-	
+
 	# Determine The KrbTgt Account In Use By The RWDC with The PDC FSMO (Representative For All RWDCs In The AD Domain)
 	$krbTgtSamAccountName = $null
 	$krbTgtSamAccountName = ($tableOfDCsInADDomain | Where-Object{$_.PDC -eq $True})."Krb Tgt"
@@ -3694,24 +3673,24 @@ If ($modeOfOperationNr -eq 9) {
 	Logging "+++ Used By RWDC.................: 'All RWDCs' +++" "REMARK"
 	Logging "+++++" "REMARK"
 	Logging "" "REMARK"
-	
+
 	# Execute The Delete Test KrbTgt Accounts Function To Delete The TEST/BOGUS KrbTgt Account For RWDCs
 	deleteTestKrbTgtADAccount $targetedADdomainSourceRWDCFQDN $krbTgtSamAccountName $localADforest $remoteCredsUsed $adminCreds
-	
+
 	# For All RODCs In The AD Domain That Do Not Have An Unknown RWDC Specfied
 	$tableOfDCsInADDomain | Where-Object{$_."DS Type" -eq "Read-Only" -And $_."Source RWDC FQDN" -ne "Unknown"} | ForEach-Object{
 		# Retrieve The RODC Object In The List
 		$rodcToProcess = $null
 		$rodcToProcess = $_
-		
+
 		# Retrieve The sAMAccountName Of The KrbTgt Account In Use By The RODC
 		$krbTgtSamAccountName = $null
 		$krbTgtSamAccountName = $rodcToProcess."Krb Tgt"
-		
+
 		# Retrieve The HostName Of The RODC
 		$rodcFQDNTarget = $null
 		$rodcFQDNTarget = $rodcToProcess."Host Name"
-		
+
 		# Retrieve The SiteName Of The RODC
 		$rodcSiteTarget = $null
 		$rodcSiteTarget = $rodcToProcess."Site Name"
@@ -3720,7 +3699,7 @@ If ($modeOfOperationNr -eq 9) {
 		Logging "+++ Used By RODC.................: '$rodcFQDNTarget' (Site: $rodcSiteTarget) +++" "REMARK"
 		Logging "+++++" "REMARK"
 		Logging "" "REMARK"
-		
+
 		# Execute The Delete Test KrbTgt Accounts Function To Delete The TEST/BOGUS KrbTgt Account For Each RODC		
 		deleteTestKrbTgtADAccount $targetedADdomainSourceRWDCFQDN $krbTgtSamAccountName $localADforest $remoteCredsUsed $adminCreds
 	}
