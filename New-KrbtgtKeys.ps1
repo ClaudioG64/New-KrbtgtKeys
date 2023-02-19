@@ -289,9 +289,9 @@ Function testAdminRole($adminRole) {
 }
 
 ### FUNCTION: Create Temporary Canary Object
-Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $execDateTimeCustom1, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $execDateTimeCustom1, $localADforest, [Boolean] $remoteCredsUsed, [PSCredential] $adminCreds) {
+	$targetedADdomainDefaultNC = $containerForTempCanaryObject = $targetObjectToCheckName = $targetObjectToCheckDN = $null
 	# Determine The DN Of The Default NC Of The Targeted Domain
-	$targetedADdomainDefaultNC = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 		$targetedADdomainDefaultNC = (Get-ADRootDSE -Server $targetedADdomainRWDC).defaultNamingContext
 	}
@@ -300,18 +300,15 @@ Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $e
 	}
 
 	# Determine The DN Of The Users Container Of The Targeted Domain
-	$containerForTempCanaryObject = $null
 	$containerForTempCanaryObject = "CN=Users," + $targetedADdomainDefaultNC
 
 	# Generate The Name Of The Temporary Canary Object
-	$targetObjectToCheckName = $null
 	$targetObjectToCheckName = "_adReplTempObject_" + $krbTgtSamAccountName + "_" + $execDateTimeCustom1
 
 	# Specify The Description Of The Temporary Canary Object
 	$targetObjectToCheckDescription = "...!!!.TEMP OBJECT TO CHECK AD REPLICATION IMPACT.!!!..."
 
 	# Generate The DN Of The Temporary Canary Object
-	$targetObjectToCheckDN = $null
 	$targetObjectToCheckDN = "CN=" + $targetObjectToCheckName + "," + $containerForTempCanaryObject
 	Logging "  --> RWDC To Create Object On..............: '$targetedADdomainRWDC'"
 	Logging "  --> Full Name Temp Canary Object..........: '$targetObjectToCheckName'"
@@ -404,7 +401,7 @@ Function generateNewComplexPassword([int]$passwordNrChars) {
 }
 
 ### FUNCTION: Reset Password Of AD Account
-Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $localADforest, [Boolean] $remoteCredsUsed, [PSCredential] $adminCreds) {
 	$krbTgtObjectBefore = $krbTgtObjectBeforeDN = $krbTgtObjectBeforePwdLastSet = $metadataObjectBefore = $metadataObjectBeforeAttribPwdLastSet = $orgRWDCNTDSSettingsObjectDNBefore = $null
 	# Retrieve The KrgTgt Object In The AD Domain BEFORE THE PASSWORD SET
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -557,7 +554,7 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 
 ### FUNCTION: Replicate Single AD Object
 # INFO: https://msdn.microsoft.com/en-us/library/cc223306.aspx
-Function replicateSingleADObject($sourceDCNTDSSettingsObjectDN, $targetDCFQDN, $objectDN, $contentScope, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+Function replicateSingleADObject($sourceDCNTDSSettingsObjectDN, $targetDCFQDN, $objectDN, $contentScope, $localADforest, [Boolean] $remoteCredsUsed, [PSCredential] $adminCreds) {
 	# Define And Target The root DSE Context
 	$rootDSE = $null
 	If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -582,7 +579,7 @@ Function replicateSingleADObject($sourceDCNTDSSettingsObjectDN, $targetDCFQDN, $
 }
 
 ### FUNCTION: Delete/Cleanup Temporary Canary Object
-Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $localADforest, [Boolean] $remoteCredsUsed, [PSCredential] $adminCreds) {
 	# Try To Delete The Canary Object In The AD Domain And If Not Successfull Throw Error
 	Try {
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
@@ -612,7 +609,7 @@ Function deleteTempCanaryObject($targetedADdomainRWDC, $targetObjectToCheckDN, $
 }
 
 ### FUNCTION: Check AD Replication Convergence
-Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainSourceRWDCFQDN, $targetObjectToCheckDN, $listOfDCsToCheckObjectOnStart, $listOfDCsToCheckObjectOnEnd, $modeOfOperationNr, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainSourceRWDCFQDN, $targetObjectToCheckDN, $listOfDCsToCheckObjectOnStart, $listOfDCsToCheckObjectOnEnd, $modeOfOperationNr, $localADforest, [Boolean] $remoteCredsUsed, [PSCredential] $adminCreds) {
 	# Determine The Starting Time
 	$startDateTime = Get-Date
 
@@ -931,7 +928,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 }
 
 ### FUNCTION: Create Test Krbtgt Accounts
-Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $krbTgtUse, $targetedADdomainDomainSID, $localADforest, $remoteCredsUsed, [PSCredential] $adminCreds) {
+Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $krbTgtUse, $targetedADdomainDomainSID, $localADforest, [Boolean] $remoteCredsUsed, [PSCredential] $adminCreds) {
 	$targetedADdomainDefaultNC = $containerForTestKrbTgtAccount = $testKrbTgtObjectSamAccountName = $testKrbTgtObjectName = $testKrbTgtObjectDescription = $testKrbTgtObjectDN = $null
 
 	# Determine The DN Of The Default NC Of The Targeted Domain
