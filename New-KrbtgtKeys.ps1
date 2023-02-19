@@ -191,8 +191,8 @@ $ver
 #>
 
 ### FUNCTION: Logging Data To The Log File
-Function Logging($dataToLog, $lineType) {
-	$datetimeLogLine = "[" + $(Get-Date -format "yyyy-MM-dd HH:mm:ss") + "] : "
+Function Logging($dataToLog = '', $lineType) {
+	$datetimeLogLine = Get-Date -format "[yyyy-MM-dd HH:mm:ss] : "
 	Out-File -filepath "$logFilePath" -append -inputObject "$datetimeLogLine$dataToLog"
 	#Write-Output($datetimeLogLine + $dataToLog)
 	If ($null -eq $lineType) {
@@ -247,7 +247,7 @@ Function portConnectionCheck($fqdnServer,$port,$timeOut) {
 	} Else {
 		#$error.Clear()
 		$ErrorActionPreference = "SilentlyContinue"
-		$tcpPortSocket.EndConnect($portConnect) | Out-Null
+		$null = $tcpPortSocket.EndConnect($portConnect)
 		If (!$?) {
 			Return "ERROR"
 		} Else {
@@ -315,7 +315,7 @@ Function createTempCanaryObject($targetedADdomainRWDC, $krbTgtSamAccountName, $e
 	Logging "  --> Full Name Temp Canary Object..........: '$targetObjectToCheckName'"
 	Logging "  --> Description...........................: '$targetObjectToCheckDescription'"
 	Logging "  --> Container For Temp Canary Object......: '$containerForTempCanaryObject'"
-	Logging ""
+	Logging
 	
 	# Try To Create The Canary Object In The AD Domain And If Not Successfull Throw Error
 	Try {
@@ -480,7 +480,7 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 			Set-ADAccountPassword -Identity $krbTgtObjectBeforeDN -Server $targetedADdomainRWDC -Reset -NewPassword $newKrbTgtPasswordSecure -Credential $adminCreds
 		}
 	} Catch {
-		Logging ""
+		Logging
 		Logging "  --> Setting the new password for [$krbTgtObjectBeforeDN] FAILED on RWDC [$targetedADdomainRWDC]!..." "ERROR"
 		Logging "" "ERROR"
 	}
@@ -536,22 +536,22 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 	$metadataObjectAfterAttribPwdLastSetOrgTime = Get-Date $($metadataObjectAfterAttribPwdLastSet.LastOriginatingChangeTime) -f "yyyy-MM-dd HH:mm:ss"
 	$metadataObjectAfterAttribPwdLastSetVersion = $null
 	$metadataObjectAfterAttribPwdLastSetVersion = $metadataObjectAfterAttribPwdLastSet.Version
-	Logging ""
+	Logging
 	Logging "  --> Previous Password Set Date/Time.......: '$krbTgtObjectBeforePwdLastSet'"
 	If ($krbTgtObjectAfterPwdLastSet -ne $krbTgtObjectBeforePwdLastSet) {
 		Logging "  --> New Password Set Date/Time............: '$krbTgtObjectAfterPwdLastSet'"
 	}
-	Logging ""
+	Logging
 	Logging "  --> Previous Originating RWDC.............: '$metadataObjectBeforeAttribPwdLastSetOrgRWDCFQDN'"
 	If ($krbTgtObjectAfterPwdLastSet -ne $krbTgtObjectBeforePwdLastSet) {
 		Logging "  --> New Originating RWDC..................: '$metadataObjectAfterAttribPwdLastSetOrgRWDCFQDN'"
 	}
-	Logging ""
+	Logging
 	Logging "  --> Previous Originating Time.............: '$metadataObjectBeforeAttribPwdLastSetOrgTime'"
 	If ($krbTgtObjectAfterPwdLastSet -ne $krbTgtObjectBeforePwdLastSet) {
 		Logging "  --> New Originating Time..................: '$metadataObjectAfterAttribPwdLastSetOrgTime'"
 	}
-	Logging ""
+	Logging
 	Logging "  --> Previous Version Of Attribute Value...: '$metadataObjectBeforeAttribPwdLastSetVersion'"
 	If ($krbTgtObjectAfterPwdLastSet -ne $krbTgtObjectBeforePwdLastSet) {
 		Logging "  --> New Version Of Attribute Value........: '$metadataObjectAfterAttribPwdLastSetVersion'"
@@ -559,7 +559,7 @@ Function setPasswordOfADAccount($targetedADdomainRWDC, $krbTgtSamAccountName, $l
 
 	# Check And Confirm If The Password Value Has Been Updated By Comparing The Password Last Set Before And After The Reset
 	If ($krbTgtObjectAfterPwdLastSet -ne $krbTgtObjectBeforePwdLastSet) {
-		Logging ""
+		Logging
 		Logging "  --> The new password for [$krbTgtObjectAfterDN] HAS BEEN SET on RWDC [$targetedADdomainRWDC]!..." "REMARK"
 		Logging "" "REMARK"
 	}
@@ -638,9 +638,9 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 	While($continue) {
 		$c++
 		$oldpos = $host.UI.RawUI.CursorPosition
-		Logging ""
+		Logging
 		Logging "  =================================================================== CHECK $c ==================================================================="
-		Logging ""
+		Logging
 		
 		# Wait For The Duration Of The Configured Delay Before Trying Again
 		Start-Sleep $delay
@@ -712,7 +712,7 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 				If ($modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
 					Logging "     * The new password for Object [$targetObjectToCheckDN] exists in the AD database" "SUCCESS"
 				}
-				Logging ""
+				Logging
 				CONTINUE
 			}
 			
@@ -912,11 +912,11 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 	
 	# Calculate The Duration
 	$duration = "{0:n2}" -f ($endDateTime.Subtract($startDateTime).TotalSeconds)
-	Logging ""
+	Logging
 	Logging "  --> Start Time......: $(Get-Date $startDateTime -format 'yyyy-MM-dd HH:mm:ss')"
 	Logging "  --> End Time........: $(Get-Date $endDateTime -format 'yyyy-MM-dd HH:mm:ss')"
 	Logging "  --> Duration........: $duration Seconds"
-	Logging ""
+	Logging
 
 	# If Mode 2 Was Being Executed, Then Delete The Temp Canary Object On The Source (Originating) RWDC
 	If ($modeOfOperationNr -eq 2) {
@@ -938,11 +938,11 @@ Function checkADReplicationConvergence($targetedADdomainFQDN, $targetedADdomainS
 
 	# Sort The Ending List With All DCs That Were Checked
 	$listOfDCsToCheckObjectOnEnd = $listOfDCsToCheckObjectOnEnd | Sort-Object -Property @{Expression = "Time"; Descending = $False} | Format-Table -Autosize
-	Logging ""
+	Logging
 	Logging "List Of DCs In AD Domain '$targetedADdomainFQDN' And Their Timing..."
-	Logging ""
+	Logging
 	Logging "$($listOfDCsToCheckObjectOnEnd | Out-String)"
-	Logging ""
+	Logging
 }
 
 ### FUNCTION: Create Test Krbtgt Accounts
@@ -1014,7 +1014,7 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 		}		
 		Logging "  --> Made Member Of RODC PRP Group.........: '$allowedRODCPwdReplGroupObjectName'"
 	}
-	Logging ""
+	Logging
 	
 	# Check If The Test/Bogus KrbTgt Account Already Exists In AD
 	$testKrbTgtObject = $null
@@ -1097,7 +1097,7 @@ Function createTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName,
 				Logging "" "REMARK"
 			}
 		}
-		
+
 		# If The Test/Bogus KrbTgt Account Is Used By RODCs
 		If ($krbTgtUse -eq "RODC") {
 			# Check If The Test/Bogus KrbTgt Account Is Already A Member Of The Specified AD Group
@@ -1143,7 +1143,7 @@ Function deleteTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName)
 		$testKrbTgtObjectDN = $testKrbTgtObject.DistinguishedName
 		Logging "  --> RWDC To Delete Object On..............: '$targetedADdomainRWDC'"
 		Logging "  --> Test KrbTgt Account DN................: '$testKrbTgtObjectDN'"
-		Logging ""
+		Logging
 		If ($localADforest -eq $true -Or ($localADforest -eq $false -And $remoteCredsUsed -eq $false)) {
 			Remove-ADUser -Identity $testKrbTgtObjectDN -Server $targetedADdomainRWDC -Confirm:$false
 		}
@@ -1173,7 +1173,7 @@ Function deleteTestKrbTgtADAccount($targetedADdomainRWDC, $krbTgtSamAccountName)
 }
 
 ### Version Of Script
-$version = "v2.5, 2020-02-17"
+$version = "v2.5.1, 2022-02-19"
 
 ### Clear The Screen
 Clear-Host
@@ -1219,7 +1219,7 @@ $localComputerName = $(Get-WmiObject -Class Win32_ComputerSystem).Name
 [string]$logFilePath = Join-Path $currentScriptFolderPath $($execDateTimeCustom + "_" + $localComputerName + "_Reset-KrbTgt-Password-For-RWDCs-And-RODCs.log")
 
 ### Presentation Of Script Header
-Logging ""
+Logging
 Logging "                                          **********************************************************" "MAINHEADER"
 Logging "                                          *                                                        *" "MAINHEADER"
 Logging "                                          *  --> Reset KrbTgt Account Password For RWDCs/RODCs <-- *" "MAINHEADER"
@@ -1231,23 +1231,23 @@ Logging "                                          *                            
 Logging "                                          *                    $version                    *" "MAINHEADER"
 Logging "                                          *                                                        *" "MAINHEADER"
 Logging "                                          **********************************************************" "MAINHEADER"
-Logging ""
+Logging
 
 ### Providing Information About What The Script Is Capable Of And How The Script Works
-Logging ""
+Logging
 Logging "Do you want to read information about the script, its functions, its behavior and the impact? [YES | NO]: " "ACTION-NO-NEW-LINE"
 $yesOrNo = $null
 $yesOrNo = Read-Host
 If ($yesOrNo.ToUpper() -ne "NO") {
 	$yesOrNo = "YES"
 }
-Logging ""
+Logging
 Logging "  --> Chosen: $yesOrNo" "REMARK"
-Logging ""
+Logging
 If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 	Logging "INFORMATION ABOUT THE SCRIPT, ITS FUNCTIONS AND BEHAVIOR, AND IMPACT TO THE ENVIRONMENT - PLEASE READ CAREFULLY..." "HEADER"
-	Logging ""
+	Logging
 	Logging "-----" "REMARK"
 	Logging "This PoSH script provides the following functions:" "REMARK"
 	Logging "-----" "REMARK"
@@ -1270,30 +1270,30 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "     and replication of it is monitored through the environment for its duration" "REMARK"
 	Logging " - The creation of Test KrbTgt Accounts" "REMARK"
 	Logging " - The cleanup of previously created Test KrbTgt Accounts" "REMARK"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging "-----" "REMARK"
 	Logging "This PoSH script has the following behavior:" "REMARK"
 	Logging "-----" "REMARK"
-	Logging ""
+	Logging
 	Logging " - Mode 1 is INFORMATIONAL MODE..." "REMARK-IMPORTANT"
 	Logging "     * Safe to run at any time as there are not changes in any way!" "REMARK-IMPORTANT"
 	Logging "     * Analyzes the environment and check for issues that may impact mode 2, 3 or 4!" "REMARK-IMPORTANT"
 	Logging "     * For the targeted AD domain, it always retrieves all RWDCs, and all RODCs if applicable." "REMARK-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging " - Mode 2 is SIMULATION MODE USING A TEMPORARY CANARY OBJECT..." "REMARK-MORE-IMPORTANT"
 	Logging "     * Also executes everything from mode 1!" "REMARK-MORE-IMPORTANT"
 	Logging "     * Creates the temporary canary object and, depending on the scope, it will check if it exists in the AD database of the remote DC(s)" "REMARK-MORE-IMPORTANT"
@@ -1308,14 +1308,14 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "       the change made reached it or not." "REMARK-MORE-IMPORTANT"
 	Logging "     * When performing the 'replicate single object' operation, it will always be for the full object, no matter if the remote DC is an RWDC" "REMARK-MORE-IMPORTANT"
 	Logging "       or an RODC" "REMARK-MORE-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging " - Mode 3 is SIMULATION MODE USING TEST/BOGUS KRBTGT ACCOUNTS..." "REMARK-MORE-IMPORTANT"
 	Logging "     * Also executes everything from mode 1!" "REMARK-MORE-IMPORTANT"
 	Logging "     * Instead of using PROD/REAL KrbTgt Account(s), it uses pre-created TEST/BOGUS KrbTgt Accounts(s) for the password reset!" "REMARK-MORE-IMPORTANT"
@@ -1337,14 +1337,14 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "       the change made reached it or not." "REMARK-MORE-IMPORTANT"
 	Logging "     * When performing the 'replicate single object' operation, it will always be for the full object if the target DC is an RWDC. If the" "REMARK-MORE-IMPORTANT"
 	Logging "       target DC is an RODC, then it will be for the partial object (secrets only)." "REMARK-MORE-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging " - Mode 4 is REAL RESET MODE USING PROD/REAL KRBTGT ACCOUNTS..." "REMARK-MOST-IMPORTANT"
 	Logging "     * Also executes everything from mode 1!" "REMARK-MOST-IMPORTANT"
 	Logging "     * Now it does use the PROD/REAL KrbTgt Accounts(s) for the password reset!" "REMARK-MOST-IMPORTANT"
@@ -1366,14 +1366,14 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "       the change made reached it or not." "REMARK-MOST-IMPORTANT"
 	Logging "     * When performing the 'replicate single object' operation, it will always be for the full object if the target DC is an RWDC. If the" "REMARK-MOST-IMPORTANT"
 	Logging "       target DC is an RODC, then it will be for the partial object (secrets only)." "REMARK-MOST-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging " - Mode 8 is CREATE TEST KRBTGT ACCOUNTS MODE..." "REMARK-IMPORTANT"
 	Logging "     * Creates so called TEST/BOGUS KrbTgt Account(s) to simulate the password reset with." "REMARK-IMPORTANT"
 	Logging "     * Has no impact on the PROD/REAL KrbTgt Account(s)." "REMARK-IMPORTANT"
@@ -1382,27 +1382,27 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "     * For RODCs, if any in the AD domain, it creates (in disabled state!) the TEST/BOGUS KrbTgt account 'krbtgt_<Numeric Value>_TEST' and" "REMARK-IMPORTANT"
 	Logging "       adds it to the AD group 'Allowed RODC Password Replication Group'. To determine the specific KrbTgt account in use by an RODC, the" "REMARK-IMPORTANT"
 	Logging "       script reads the attribute 'msDS-KrbTgtLink' on the RODC computer account." "REMARK-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging " - Mode 9 is CLEANUP TEST KRBTGT ACCOUNTS MODE..." "REMARK-IMPORTANT"
 	Logging "     * Cleanup (delete) the so called TEST/BOGUS KrbTgt Account(s) that were used to simulate the password reset with." "REMARK-IMPORTANT"
 	Logging "     * For RWDCs it deletes the TEST/BOGUS KrbTgt account 'krbtgt_TEST' if it exists." "REMARK-IMPORTANT"
 	Logging "     * For RODCs, if any in the AD domain, it deletes the TEST/BOGUS KrbTgt account 'krbtgt_<Numeric Value>_TEST' if it exists. To determine" "REMARK-IMPORTANT"
 	Logging "       the specific KrbTgt account in use by an RODC, the script reads the attribute 'msDS-KrbTgtLink' on the RODC computer account." "REMARK-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging " - ADDITIONAL INFO - BEHAVIOR..." "REMARK-IMPORTANT"
 	Logging "     * If the operating system attribute of an RODC computer account does not have a value, it is determined to be unknown (not a real RODC)," "REMARK-IMPORTANT"
 	Logging "       and therefore something else. It could for example be a Riverbed appliance in 'RODC mode'." "REMARK-IMPORTANT"
@@ -1412,14 +1412,14 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "       determined. In case the RODC is not available or its 'source' server is not available, the RWDC with the PDC FSMO is used to reset" "REMARK-IMPORTANT"
 	Logging "       the password of the krbtgt account in use by that RODC. If the RODC is available a check will be done against its database, and if" "REMARK-IMPORTANT"
 	Logging "       not available the check is skipped." "REMARK-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging " - ADDITIONAL INFO - OBSERVED IMPACT..." "REMARK-IMPORTANT"
 	Logging "     * Within an AD domain, all RWDCs use the account 'krbtgt' to encrypt/sign Kerberos tickets trusted by all RWDCs" "REMARK-IMPORTANT"
 	Logging "     * Within an AD domain, every RODC uses its own 'krbtgt_<Numeric Value>' account to encrypt/sign Kerberos tickets trusted by only that RODC" "REMARK-IMPORTANT"
@@ -1444,14 +1444,14 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "       errors. However, it should be noted that this impact is very unlikely, because it is very unlikely that a client will attempt to obtain a" "REMARK-IMPORTANT"
 	Logging "       service ticket from a different RWDC than the one from which their TGT was obtained, especially during the relatively short impact" "REMARK-IMPORTANT"
 	Logging "       duration of Mode 4." "REMARK-IMPORTANT"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging "First, read the info above, then..." "ACTION"
 	Logging "Press Any Key (TWICE!) To Continue..." "ACTION"
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-	Logging ""
-	Logging ""
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+	Logging
+	Logging
 	Logging "    >>> It is highly recommended to use the following order of execution: <<<" "REMARK-MORE-IMPORTANT"
 	Logging "     - Mode 1 - Informational Mode (No Changes At All)" "REMARK-MORE-IMPORTANT"
 	Logging "     - Mode 8 - Create TEST KrbTgt Accounts" "REMARK-MORE-IMPORTANT"
@@ -1459,20 +1459,20 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "     - Mode 3 - Simulation Mode - Use KrbTgt TEST/BOGUS Accounts (Password Will Be Reset Once!)" "REMARK-MORE-IMPORTANT"
 	Logging "     - Mode 4 - Real Reset Mode - Use KrbTgt PROD/REAL Accounts (Password Will Be Reset Once!)" "REMARK-MORE-IMPORTANT"
 	Logging "     - Mode 9 - Cleanup TEST KrbTgt Accounts (Could be skipped to reuse accounts the next time!)" "REMARK-MORE-IMPORTANT"
-	Logging ""
+	Logging
 }
 
 ### Checking The Language Of The OS
 #Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 #Logging "CHECKING THE LANGUAGE OF THE OS..." "HEADER"
-#Logging ""
+#Logging
 
 # List Of Supported ISO Language Codes
 #$listOfSupportedISOLanguageCodes = "en-US","en-GB"
 # Retreiving The Language ISO Code
 #$isoLanguageCode = (Get-Culture).Name
 #Logging "ISO Language Code...: $isoLanguageCode"
-#Logging ""
+#Logging
 #Logging "Checking ISO Language Code Is Either:..."
 #$listOfSupportedISOLanguageCodes | ForEach-Object{
 #	Logging "  --> $_"
@@ -1512,53 +1512,53 @@ If ($yesOrNo.ToUpper() -ne "NO") {
 ### Loading Required PowerShell Modules
 Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 Logging "LOADING REQUIRED POWERSHELL MODULES..." "HEADER"
-Logging ""
+Logging
 
 # Try To Load The Required PowerShell Module. Abort Script If Not Available
 $poshModuleAD = loadPoSHModules ActiveDirectory
 If ($poshModuleAD -eq "NotAvailable") {
-	Logging ""
+	Logging
 	EXIT
 }
-Logging ""
+Logging
 
 # Try To Load The Required PowerShell Module. Abort Script If Not Available
 $poshModuleGPO = loadPoSHModules GroupPolicy
 If ($poshModuleGPO -eq "NotAvailable") {
-	Logging ""
+	Logging
 	EXIT
 }
-Logging ""
+Logging
 
 ### Display And Selecting The Mode Of Operation
 Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 Logging "SELECT THE MODE OF OPERATION..." "HEADER"
-Logging ""
+Logging
 Logging "Which mode of operation do you want to execute?"
-Logging ""
+Logging
 Logging " - 1 - Informational Mode (No Changes At All)"
-Logging ""
+Logging
 Logging " - 2 - Simulation Mode (Temporary Canary Object Created, No Password Reset!)"
-Logging ""
+Logging
 Logging " - 3 - Simulation Mode - Use KrbTgt TEST/BOGUS Accounts (Password Will Be Reset Once!)"
-Logging ""
+Logging
 Logging " - 4 - Real Reset Mode - Use KrbTgt PROD/REAL Accounts (Password Will Be Reset Once!)"
-Logging ""
-Logging ""
+Logging
+Logging
 Logging " - 8 - Create TEST KrbTgt Accounts"
 Logging " - 9 - Cleanup TEST KrbTgt Accounts"
-Logging ""
-Logging ""
+Logging
+Logging
 Logging " - 0 - Exit Script"
-Logging ""
+Logging
 Logging "Please specify the mode of operation: " "ACTION-NO-NEW-LINE"
 $modeOfOperationNr = Read-Host
-Logging ""
+Logging
 
 # If Anything Else Than The Allowed/Available Non-Zero Modes, Abort The Script
 If (($modeOfOperationNr -ne 1 -And $modeOfOperationNr -ne 2 -And $modeOfOperationNr -ne 3 -And $modeOfOperationNr -ne 4 -And $modeOfOperationNr -ne 8 -And $modeOfOperationNr -ne 9) -Or $modeOfOperationNr -notmatch "^[\d\.]+$") {
 	Logging "  --> Chosen mode: Mode 0 - Exit Script..." "REMARK"
-	Logging ""
+	Logging
 	
 	EXIT
 }
@@ -1566,43 +1566,43 @@ If (($modeOfOperationNr -ne 1 -And $modeOfOperationNr -ne 2 -And $modeOfOperatio
 # If Mode 1
 If ($modeOfOperationNr -eq 1) {
 	Logging "  --> Chosen Mode: Mode 1 - Informational Mode (No Changes At All)..." "REMARK"
-	Logging ""
+	Logging
 }
 
 # If Mode 2
 If ($modeOfOperationNr -eq 2) {
 	Logging "  --> Chosen Mode: Mode 2 - Simulation Mode (Temporary Canary Object Created, No Password Reset!)..." "REMARK"
-	Logging ""
+	Logging
 }
 
 # If Mode 3
 If ($modeOfOperationNr -eq 3) {
 	Logging "  --> Chosen Mode: Mode 3 - Simulation Mode - Use KrbTgt TEST/BOGUS Accounts (Password Will Be Reset Once!)..." "REMARK"
-	Logging ""
+	Logging
 }
 
 # If Mode 4
 If ($modeOfOperationNr -eq 4) {
 	Logging "  --> Chosen Mode: Mode 4 - Real Reset Mode - Use KrbTgt PROD/REAL Accounts (Password Will Be Reset Once!)..." "REMARK"
-	Logging ""
+	Logging
 }
 
 # If Mode 8
 If ($modeOfOperationNr -eq 8) {
 	Logging "  --> Chosen Mode: Mode 8 - Create TEST KrbTgt Accounts..." "REMARK"
-	Logging ""
+	Logging
 }
 
 # If Mode 9
 If ($modeOfOperationNr -eq 9) {
 	Logging "  --> Chosen Mode: Mode 9 - Cleanup TEST KrbTgt Accounts..." "REMARK"
-	Logging ""
+	Logging
 }
 
 ### All Modes - Selecting The Target AD Forest
 Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 Logging "SPECIFY THE TARGET AD FOREST..." "HEADER"
-Logging ""
+Logging
 
 # Retrieve The AD Domain And AD Forest Of The Computer Where The Script Is Executed
 $currentADDomainOfLocalComputer = $null
@@ -1619,7 +1619,7 @@ $targetedADforestFQDN = Read-Host
 If ($targetedADforestFQDN -eq "" -Or $null -eq $targetedADforestFQDN) {
 	$targetedADforestFQDN = $currentADForestOfLocalComputer
 }
-Logging ""
+Logging
 Logging "  --> Selected AD Forest: '$targetedADforestFQDN'..." "REMARK"
 
 # Validate The Specified AD Forest And Check A (Forest) Trust Is In Place, If Applicable
@@ -1627,7 +1627,7 @@ $adForestValidity = $false
 
 # Test To See If The Forest FQDN Is Resolvable At All
 Try {
-	[System.Net.Dns]::gethostentry($targetedADforestFQDN) | Out-Null
+	$null = [System.Net.Dns]::gethostentry($targetedADforestFQDN)
 	$adForestValidity = $true
 } Catch {
 	$adForestValidity = $false
@@ -1641,7 +1641,7 @@ If ($targetedADforestFQDN -eq $currentADForestOfLocalComputer) {
 	$remoteADforest = $true
 	$adForestLocation = "Remote"
 }
-Logging ""
+Logging
 Logging "Checking Resolvability of the specified $adForestLocation AD forest '$targetedADforestFQDN' through DNS..."
 If ($adForestValidity -eq $true) {
 	# If The AD Forest Is Resolvable And Therefore Exists, Continue
@@ -1680,7 +1680,7 @@ Try {
 	$adForestAccessibility = $false
 	$remoteCredsUsed = $true
 }
-Logging ""
+Logging
 Logging "Checking Accessibility of the specified AD forest '$targetedADforestFQDN' By Trying To Retrieve AD Forest Data..."
 If ($adForestAccessibility -eq $true) {
 	# If The AD Forest Is Accessible, Continue
@@ -1698,7 +1698,7 @@ If ($adForestAccessibility -eq $true) {
 	Logging "" "ERROR"
 	Logging "Continuing Script And Asking For Credentials..." "WARNING"
 	Logging "" "WARNING"
-	Logging ""
+	Logging
 	
 	# Ask For The Remote Credentials
 	Logging "Please provide an account (<DOMAIN FQDN>\<ACCOUNT>) that is a member of the 'Administrators' group in every AD domain of the specified AD forest: " "ACTION-NO-NEW-LINE"
@@ -1707,7 +1707,7 @@ If ($adForestAccessibility -eq $true) {
 	
 	# Ask For The Admin User Account
 	If ($adminUserAccountRemoteForest -eq "" -Or $null -eq $adminUserAccountRemoteForest) {
-		Logging ""
+		Logging
 		Logging "Please provide an account (<DOMAIN FQDN>\<ACCOUNT>) that is a member of the 'Administrators' group in every AD domain of the specified AD forest: " "ACTION-NO-NEW-LINE"
 		$adminUserAccountRemoteForest = $null
 		$adminUserAccountRemoteForest = Read-Host
@@ -1718,7 +1718,7 @@ If ($adForestAccessibility -eq $true) {
 	$adminUserPasswordRemoteForest = $null
 	$adminUserPasswordRemoteForest = Read-Host -AsSecureString
 	If ($adminUserPasswordRemoteForest -eq "" -Or $null -eq $adminUserPasswordRemoteForest) {
-		Logging ""
+		Logging
 		Logging "Please provide the corresponding password of that admin account: " "ACTION-NO-NEW-LINE"
 		$adminUserPasswordRemoteForest = $null
 		[System.Security.SecureString]$adminUserPasswordRemoteForest = Read-Host -AsSecureString
@@ -1737,7 +1737,7 @@ If ($adForestAccessibility -eq $true) {
 	} Catch {
 		$adForestAccessibility = $false
 	}
-	Logging ""
+	Logging
 	Logging "Checking Accessibility of the specified AD forest '$targetedADforestFQDN' By Trying To Retrieve AD Forest Data..."
 	If ($adForestAccessibility -eq $true) {
 		# If The AD Forest Is Accessible, Continue
@@ -1763,7 +1763,7 @@ If ($adForestAccessibility -eq $true) {
 ### All Modes - Selecting The Target AD Domain
 Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 Logging "SELECT THE TARGET AD DOMAIN..." "HEADER"
-Logging ""
+Logging
 
 # Retrieve Root AD Domain Of The AD Forest
 $rootADDomainInADForest = $null
@@ -1878,12 +1878,12 @@ $listOfADDomainsInADForest | ForEach-Object{
 }
 
 # Display The List And Amount Of AD Domains
-Logging ""
+Logging
 Logging "List Of AD Domains In AD Forest '$rootADDomainInADForest'..."
-Logging ""
+Logging
 Logging "$($tableOfADDomainsInADForest | Format-Table | Out-String)"
 Logging "  --> Found [$nrOfDomainsInForest] AD Domain(s) in the AD forest '$rootADDomainInADForest'..." "REMARK"
-Logging ""
+Logging
 
 # Ask Which AD Domain To Target From The Previously Presented List
 Logging "For the AD domain to be targeted, please provide the FQDN or press [ENTER] for the current AD domain: " "ACTION-NO-NEW-LINE"
@@ -1894,7 +1894,7 @@ $targetedADdomainFQDN = Read-Host
 If ($targetedADdomainFQDN -eq "" -Or $null -eq $targetedADdomainFQDN) {
 	$targetedADdomainFQDN = $currentADDomainOfLocalComputer
 }
-Logging ""
+Logging
 Logging "  --> Selected AD Domain: '$targetedADdomainFQDN'..." "REMARK"
 
 # Validate The Chosen AD Domain Against The List Of Available AD Domains To See If It Does Exist In The AD Forest
@@ -1906,7 +1906,7 @@ $listOfADDomainsInADForest | ForEach-Object{
 		$adDomainValidity = $true
 	}
 }
-Logging ""
+Logging
 Logging "Checking existence of the specified AD domain '$targetedADdomainFQDN' in the AD forest '$rootADDomainInADForest'..."
 If ($adDomainValidity -eq $true) {
 	# If The AD Domain Is Valid And Therefore Exists, Continue
@@ -1931,7 +1931,7 @@ If ($adDomainValidity -eq $true) {
 ### All Modes - Testing If Required Permissions Are Available (Domain/Enterprise Admin Credentials)
 Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 Logging "TESTING IF REQUIRED PERMISSIONS ARE AVAILABLE (DOMAIN/ENTERPRISE ADMINS OR ADMINISTRATORS CREDENTIALS)..." "HEADER"
-Logging ""
+Logging
 
 # If The AD Forest Is Local, Then We Can Test For Role Membership Of Either Domain Admins Or Enterprise Admins.
 If ($localADforest -eq $true) {
@@ -2021,7 +2021,7 @@ If ($remoteADforest -eq $true -And $remoteCredsUsed -eq $true) {
 ### All Modes - Gathering AD Domain Information
 Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 Logging "GATHERING TARGETED AD DOMAIN INFORMATION..." "HEADER"
-Logging ""
+Logging
 
 # Target AD Domain Data
 $targetedADdomainData = $null
@@ -2098,7 +2098,7 @@ If ($thisADDomain) {
 		$sourceInfoFrom = "Default Domain GPO"
 	} Catch {
 		Logging "Could not lookup 'MaxTicketAge' (default 10 hours) and 'MaxClockSkew' (default 5 minutes) from the 'Default Domain Policy' GPO, so default values will be assumed." "WARNING"
-		Logging ""
+		Logging
 		$targetedADdomainMaxTgtLifetimeHrs = 10
 		$targetedADdomainMaxClockSkewMins = 5
 		$sourceInfoFrom = "Assumed"
@@ -2122,7 +2122,7 @@ Logging "DSA RWDC With PDC FSMO................: '$targetedADdomainRWDCWithPDCFS
 Logging "Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
 Logging "Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
 Logging "TGT Lifetime/Clock Skew Sourced From..: '$sourceInfoFrom'"
-Logging ""
+Logging
 Logging "Checking Domain Functional Mode of targeted AD domain '$targetedADdomainFQDN' is high enough..."
 
 # Check If The Domain Functional Level/Mode Of The AD Domain Is High Enough To Continue
@@ -2158,7 +2158,7 @@ If ($targetedADdomainDomainFunctionalModeLevel -ne "Unavailable" -And $targetedA
 ### All Modes - Gathering Domain Controller Information And Testing Connectivity
 Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 Logging "GATHERING DOMAIN CONTROLLER INFORMATION AND TESTING CONNECTIVITY..." "HEADER"
-Logging ""
+Logging
 
 # Define An Empty List/Table That Will Contain All DCs In The AD Domain And Related Information
 $tableOfDCsInADDomain = @()
@@ -2686,28 +2686,28 @@ Logging "" "REMARK"
 If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
 	Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 	Logging "SELECT THE SCOPE OF THE KRBTGT ACCOUNT(S) TO TARGET..." "HEADER"
-	Logging ""
+	Logging
 	Logging "Which KrbTgt account do you want to target?"
-	Logging ""
+	Logging
 	Logging " - 1 - Scope of KrbTgt in use by all RWDCs in the AD Domain"
-	Logging ""
+	Logging
 	Logging " - 2 - Scope of KrbTgt in use by specific RODC - Single RODC in the AD Domain"
-	Logging ""
+	Logging
 	Logging " - 3 - Scope of KrbTgt in use by specific RODC - Multiple RODCs in the AD Domain"
-	Logging ""
+	Logging
 	Logging " - 4 - Scope of KrbTgt in use by specific RODC - All RODCs in the AD Domain"
-	Logging ""
-	Logging ""
+	Logging
+	Logging
 	Logging " - 0 - Exit Script"
-	Logging ""
+	Logging
 	Logging "Please specify the scope of KrbTgt Account to target: " "ACTION-NO-NEW-LINE"
 	$targetKrbTgtAccountNr = Read-Host
-	Logging ""
+	Logging
 	
 	# If Anything Else Than The Allowed/Available Non-Zero KrbTgt Accounts, Abort The Script
 	If (($targetKrbTgtAccountNr -ne 1 -And $targetKrbTgtAccountNr -ne 2 -And $targetKrbTgtAccountNr -ne 3 -And $targetKrbTgtAccountNr -ne 4) -Or $targetKrbTgtAccountNr -notmatch "^[\d\.]+$") {
 		Logging "  --> Chosen Scope KrbTgt Account Target: 0 - Exit Script..." "REMARK"
-		Logging ""
+		Logging
 		
 		EXIT
 	}
@@ -2732,16 +2732,16 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		$targetKrbTgtAccountDescription = "4 - Scope of KrbTgt in use by specific RODC - All RODCs in the AD Domain..."
 	}
 	Logging "  --> Chosen Scope KrbTgt Account Target: $targetKrbTgtAccountDescription" "REMARK"
-	Logging ""
+	Logging
 	
 	# If KrbTgt Account 2 Specify The FQDN Of A Single RODC To Target
 	If ($targetKrbTgtAccountNr -eq 2) {
 		Logging "Specify the FQDN of single RODC for which the KrbTgt Account Password must be reset: " "ACTION-NO-NEW-LINE"
 		$targetRODCFQDNList = Read-Host
-		Logging ""
+		Logging
 		Logging "  --> Specified RODC:" "REMARK"
 		Logging "       * $targetRODCFQDNList" "REMARK"
-		Logging ""
+		Logging
 	}
 	
 	# If KrbTgt Account 3 Specify A Comma Separated List Of FQDNs Of RODCs To Target
@@ -2749,12 +2749,12 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		Logging "Specify a comma-separated list of FQDNs of RODCs for which the KrbTgt Account Password must be reset: " "ACTION-NO-NEW-LINE"
 		$targetRODCFQDNList = Read-Host
 		$targetRODCFQDNList = $targetRODCFQDNList.Split(",")
-		Logging ""
+		Logging
 		Logging "  --> Specified RODCs:" "REMARK"
 		$targetRODCFQDNList | ForEach-Object{
 			Logging "       * $($_)" "REMARK"
 		}
-		Logging ""
+		Logging
 	}
 }
 
@@ -2764,14 +2764,14 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 	If ($modeOfOperationNr -eq 2) {
 		Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 		Logging "SIMULATION MODE (MODE $modeOfOperationNr) - CREATING/REPLICATING TEMPORARY CANARY OBJECT ($targetKrbTgtAccountDescription)" "HEADER"
-		Logging ""
+		Logging
 	}
 	
 	# Mode 3 - Simulation Mode AND Mode 4 - Real Reset Mode
 	If ($modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
 		Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 		Logging "REAL RESET MODE (MODE $modeOfOperationNr) - RESETTING PASSWORD OF SCOPED KRBTGT ACCOUNT(S) ($targetKrbTgtAccountDescription)" "HEADER"
-		Logging ""
+		Logging
 	}
 	
 	# Asking Confirmation To Continue Or Not
@@ -2783,9 +2783,9 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		$continueOrStop = "STOP"
 	}
-	Logging ""
+	Logging
 	Logging "  --> Chosen: $continueOrStop" "REMARK"
-	Logging ""
+	Logging
 	
 	# Any Confirmation Not Equal To CONTINUE Will Abort The Script
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
@@ -2928,7 +2928,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 						Logging "  --> Originating RWDC Previous Change......: '$metadataObjectAttribPwdLastSetOrgRWDCFQDN'"
 						Logging "  --> Originating Time Previous Change......: '$metadataObjectAttribPwdLastSetOrgTime'"
 						Logging "  --> Current Version Of Attribute Value....: '$metadataObjectAttribPwdLastSetVersion'"
-						Logging ""
+						Logging
 						Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR DOMAIN WIDE IMPACT'" "WARNING"
 						Logging "" "WARNING"
 						Logging "What do you want to do? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
@@ -2939,7 +2939,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 						If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 							$continueOrStop = "STOP"
 						}
-						Logging ""
+						Logging
 						If ($continueOrStop.ToUpper() -eq "CONTINUE") {
 							# If The Confirmation Equals CONTINUE Allow The Password Reset To Continue
 							$okToReset = $True
@@ -2948,7 +2948,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 							$okToReset = $False
 						}
 						Logging "  --> Chosen: $continueOrStop" "REMARK"
-						Logging ""
+						Logging
 					}
 					If ($okToReset) {
 						# If OK To Reset Then Execute The Password Reset Of The KrbTgt Account
@@ -2967,9 +2967,9 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		} Else {
 			# If The RWDC With The PDC FSMO Is NOT Reachable
 		
-			Logging ""
+			Logging
 			Logging "The RWDC '$targetedADdomainSourceRWDCFQDN' to make the change on is not reachable/available..." "ERROR"
-			Logging ""
+			Logging
 		}
 		
 		# If The DN Of The Target Object To Check (Temp Canary Object Or KrbTgt Account, Depends On The Mode Chosen) Was Determined/Found
@@ -3261,7 +3261,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 								Logging "  --> Originating RWDC Previous Change......: '$metadataObjectAttribPwdLastSetOrgRWDCFQDN'"
 								Logging "  --> Originating Time Previous Change......: '$metadataObjectAttribPwdLastSetOrgTime'"
 								Logging "  --> Current Version Of Attribute Value....: '$metadataObjectAttribPwdLastSetVersion'"
-								Logging ""
+								Logging
 								Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR IMPACT FOR RESOURCES SERVICED BY $rodcFQDNTarget' (Site: $rodcSiteTarget)" "WARNING"
 								Logging "" "WARNING"
 								Logging "What do you want to do? [CONTINUE | SKIP | STOP]: " "ACTION-NO-NEW-LINE"
@@ -3272,7 +3272,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 								If ($continueOrStop.ToUpper() -ne "CONTINUE" -And $continueOrStop.ToUpper() -ne "SKIP" -And $continueOrStop.ToUpper() -ne "STOP") {
 									$continueOrStop = "STOP"
 								}
-								Logging ""
+								Logging
 								If ($continueOrStop.ToUpper() -eq "CONTINUE") {
 									# If The Confirmation Equals CONTINUE Allow The Password Reset To Continue
 									$okToReset = $True
@@ -3281,7 +3281,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 									$okToReset = $False
 								}
 								Logging "  --> Chosen: $continueOrStop" "REMARK"
-								Logging ""
+								Logging
 							}
 							If ($okToReset) {
 								# If OK To Reset Then Execute The Password Reset Of The KrbTgt Account
@@ -3304,9 +3304,9 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 					}
 				} Else {
 					# If The Source RWDC Is Not Available/Reachable
-					Logging ""
+					Logging
 					Logging "The RWDC '$targetedADdomainSourceRWDCFQDN' to make the change on is not reachable/available..." "ERROR"
-					Logging ""
+					Logging
 				}
 				
 				# If The DN Of The Target Object To Check (Temp Canary Object Or KrbTgt Account, Depends On The Mode Chosen) Was Determined/Found
@@ -3471,7 +3471,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 								Logging "  --> Date/Time Now.........................: '$(Get-Date $([DateTime]::Now) -f 'yyyy-MM-dd HH:mm:ss')'"
 								Logging "  --> Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
 								Logging "  --> Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
-								Logging ""
+								Logging
 								Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR IMPACT FOR RESOURCES SERVICED BY $rodcFQDNTarget' (Site: $rodcSiteTarget)" "WARNING"
 								Logging "" "WARNING"
 								Logging "What do you want to do? [CONTINUE | SKIP | STOP]: " "ACTION-NO-NEW-LINE"
@@ -3482,7 +3482,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 								If ($continueOrStop.ToUpper() -ne "CONTINUE" -And $continueOrStop.ToUpper() -ne "SKIP" -And $continueOrStop.ToUpper() -ne "STOP") {
 									$continueOrStop = "STOP"
 								}
-								Logging ""
+								Logging
 								If ($continueOrStop.ToUpper() -eq "CONTINUE") {
 									# If The Confirmation Equals CONTINUE Allow The Password Reset To Continue
 									$okToReset = $True
@@ -3491,7 +3491,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 									$okToReset = $False
 								}
 								Logging "  --> Chosen: $continueOrStop" "REMARK"
-								Logging ""
+								Logging
 							}
 							If ($okToReset) {
 								# If OK To Reset Then Execute The Password Reset Of The KrbTgt Account
@@ -3514,9 +3514,9 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 					}
 				} Else {
 					# If The Source RWDC With The PDC FSMO Is NOT Reachable
-					Logging ""
+					Logging
 					Logging "The RWDC '$targetedADdomainSourceRWDCFQDN' to make the change on is not reachable/available..." "ERROR"
-					Logging ""
+					Logging
 				}
 
 				# If The Confirmation Equals CONTINUE
@@ -3581,9 +3581,9 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 				$rodcToProcess = $null
 				$rodcToProcess = $_
 				Logging "$($rodcToProcess | Format-Table * | Out-String)"
-				Logging ""
+				Logging
 			}
-			Logging ""
+			Logging
 		} Else {
 			#XXX
 		}
@@ -3594,7 +3594,7 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 If ($modeOfOperationNr -eq 8) {
 	Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 	Logging "CREATE TEST KRBTGT ACCOUNTS (MODE 8)..." "HEADER"
-	Logging ""
+	Logging
 
 	# Asking Confirmation To Continue Or Not
 	Logging "Do you really want to continue and execute 'Mode $modeOfOperationNr'? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
@@ -3605,9 +3605,9 @@ If ($modeOfOperationNr -eq 8) {
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		$continueOrStop = "STOP"
 	}
-	Logging ""
+	Logging
 	Logging "  --> Chosen: $continueOrStop" "REMARK"
-	Logging ""
+	Logging
 	
 	# Any Confirmation Not Equal To CONTINUE Will Abort The Script
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
@@ -3662,7 +3662,7 @@ If ($modeOfOperationNr -eq 8) {
 If ($modeOfOperationNr -eq 9) {
 	Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 	Logging "CLEANUP TEST KRBTGT ACCOUNTS (MODE 9)..." "HEADER"
-	Logging ""
+	Logging
 
 	# Asking Confirmation To Continue Or Not
 	Logging "Do you really want to continue and execute 'Mode $modeOfOperationNr'? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
@@ -3673,9 +3673,9 @@ If ($modeOfOperationNr -eq 9) {
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		$continueOrStop = "STOP"
 	}
-	Logging ""
+	Logging
 	Logging "  --> Chosen: $continueOrStop" "REMARK"
-	Logging ""
+	Logging
 	
 	# Any Confirmation Not Equal To CONTINUE Will Abort The Script
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
@@ -3727,6 +3727,6 @@ If ($modeOfOperationNr -eq 9) {
 }
 
 # Display The Full Path To The Log File
-Logging ""
+Logging
 Logging "Log File Path...: $logFilePath" "REMARK"
-Logging ""
+Logging
