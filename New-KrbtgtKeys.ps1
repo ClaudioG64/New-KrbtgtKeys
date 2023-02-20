@@ -237,9 +237,7 @@ Function Logging($dataToLog = '', $lineType) {
 
 ### FUNCTION: Test The Port Connection
 Function portConnectionCheck($fqdnServer,$port,$timeOut) {
-	$tcpPortSocket = $null
-	$portConnect = $null
-	$tcpPortWait = $null
+	$tcpPortSocket = $portConnect = $tcpPortWait = $null
 	$tcpPortSocket = New-Object System.Net.Sockets.TcpClient
 	$portConnect = $tcpPortSocket.BeginConnect($fqdnServer,$port,$null,$null)
 	$tcpPortWait = $portConnect.AsyncWaitHandle.WaitOne($timeOut,$false)
@@ -261,10 +259,10 @@ Function portConnectionCheck($fqdnServer,$port,$timeOut) {
 }
 
 ### FUNCTION: Load Required PowerShell Modules
-Function loadPoSHModules($PoSHModule) {
+Function loadPoSHModules([string] $PoSHModule) {
 	$retValue = $null
-	If(@(Get-Module | Where-Object{$_.Name -eq $PoSHModule}).count -eq 0) {
-		If(@(Get-Module -ListAvailable | Where-Object{$_.Name -eq $PoSHModule} ).count -ne 0) {
+	If(@(Get-Module -Name $PoSHModule).count -eq 0) {
+		If(@(Get-Module -ListAvailable -Name $PoSHModule).count -ne 0) {
 			Import-Module $PoSHModule
 			Logging "PoSH Module '$PoSHModule' Has Been Loaded..." "SUCCESS"
 			$retValue = "HasBeenLoaded"
