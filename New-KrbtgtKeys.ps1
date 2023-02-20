@@ -350,6 +350,8 @@ Function confirmPasswordIsComplex($passwd) {
 	Process {
 		$criteriaMet = 0
 
+		If ($passwd.Length -lt 8) {Return $false}
+
 		# Upper Case Characters (A through Z, with diacritic marks, Greek and Cyrillic characters)
 		If ($passwd -cmatch '[A-Z]') {$criteriaMet++}
 
@@ -364,7 +366,7 @@ Function confirmPasswordIsComplex($passwd) {
 
 		# Check If It Matches Default Windows Complexity Requirements
 		If ($criteriaMet -lt 3) {Return $false}
-		If ($passwd.Length -lt 8) {Return $false}
+
 		Return $true
 	}
 }
@@ -373,7 +375,9 @@ Function confirmPasswordIsComplex($passwd) {
 Function generateNewComplexPassword([int]$passwordNrChars) {
 	Process {
 		$iterations = 0
-        Do {
+		$rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+
+		Do {
 			If ($iterations -ge 20) {
 				Logging "  --> Complex password generation failed after '$iterations' iterations..." "ERROR"
 				Logging "" "ERROR"
@@ -381,20 +385,18 @@ Function generateNewComplexPassword([int]$passwordNrChars) {
 			}
 			$iterations++
 			$pwdBytes = @()
-			$rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
 			Do {
 				[byte[]]$byte = [byte]1
 				$rng.GetBytes($byte)
 				If ($byte[0] -lt 33 -or $byte[0] -gt 126) {
 					CONTINUE
 				}
-                $pwdBytes += $byte[0]
-			}
-			While ($pwdBytes.Count -lt $passwordNrChars)
-				$passwd = ([char[]]$pwdBytes) -join ''
-			} 
-        Until (confirmPasswordIsComplex $passwd)
-        Return $passwd
+				$pwdBytes += $byte[0]
+			} While ($pwdBytes.Count -lt $passwordNrChars)
+			$passwd = ([char[]]$pwdBytes) -join ''
+		} Until (confirmPasswordIsComplex $passwd)
+
+    Return $passwd
 	}
 }
 
